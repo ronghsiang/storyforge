@@ -6,6 +6,7 @@ import { useWorldGroupStore } from '../../stores/world-group'
 import { useAIStream } from '../../hooks/useAIStream'
 import { buildVolumeOutlinePrompt, buildChapterOutlinePrompt } from '../../lib/ai/adapters/outline-adapter'
 import { buildWorldContext, buildCharacterContext } from '../../lib/ai/context-builder'
+import { buildCurrentWorldContext } from '../../lib/ai/world-group-context'
 import { buildWorldRulesContext } from '../../lib/ai/world-rules-manifest'
 import { useCharacterStore } from '../../stores/character'
 import {
@@ -141,10 +142,19 @@ export default function OutlinePanel({ project, onOpenChapter }: Props) {
     setActiveModuleKey('outline.chapter')
     setPreviewVolumes(null)
     setPreviewChapters(null)
-    const worldCtx = buildWorldContext(worldview, storyCore, powerSystem)
+    // 多世界：若本卷指定了所属世界，用该世界的完整上下文（卷可能不属于当前活跃世界）
+    let worldCtx: string
+    let chars = characters
+    if (project.enableMultiWorld && selectedVol.worldGroupId != null) {
+      worldCtx = await buildCurrentWorldContext(project.id!, selectedVol.worldGroupId)
+      // 角色限定为本世界角色 + 跨世界角色
+      chars = characters.filter(c => c.isCrossWorld || c.homeWorldGroupId === selectedVol.worldGroupId)
+    } else {
+      worldCtx = buildWorldContext(worldview, storyCore, powerSystem)
+    }
     const volIdx = volumes.indexOf(selectedVol)
     const prevSummary = volIdx > 0 ? volumes[volIdx - 1].summary : ''
-    const charCtx = buildCharacterContext(characters)
+    const charCtx = buildCharacterContext(chars)
     // Phase 32: 世界规则清单注入
     const rulesCtx = await buildWorldRulesContext(project.id!)
     const messages = buildChapterOutlinePrompt(selectedVol.title, selectedVol.summary, worldCtx, prevSummary, hint, buildOpts(), charCtx, rulesCtx)

@@ -2,8 +2,11 @@
  * 世界总览面板 — 管理多个世界组 + 世界关系
  */
 import { useState, useEffect } from 'react'
-import { Plus, Trash2, GripVertical, ArrowRight, ChevronRight } from 'lucide-react'
+import { Plus, Trash2, GripVertical, ArrowRight, ChevronRight, Sparkles, Loader2, Check } from 'lucide-react'
 import { useWorldGroupStore } from '../../stores/world-group'
+import { useAIStream } from '../../hooks/useAIStream'
+import { buildWorldSuggestPrompt, parseWorldSuggestOutput, type SuggestedWorld } from '../../lib/ai/world-group-ai'
+import { buildAllWorldsOverview } from '../../lib/ai/world-group-context'
 import { WORLD_GROUP_TYPE_LABELS } from '../../lib/types/world-group'
 import type { Project, WorldGroup, WorldGroupType } from '../../lib/types'
 import WorldGroupDetail from './WorldGroupDetail'
@@ -17,10 +20,50 @@ export default function WorldGroupOverview({ project }: Props) {
   const [editingGroup, setEditingGroup] = useState<WorldGroup | null>(null)
   const [confirmDeleteId, setConfirmDeleteId] = useState<number | null>(null)
 
+  // AI 建议世界
+  const ai = useAIStream()
+  const [showSuggest, setShowSuggest] = useState(false)
+  const [concept, setConcept] = useState('')
+  const [suggested, setSuggested] = useState<SuggestedWorld[] | null>(null)
+  const [adoptedIdx, setAdoptedIdx] = useState<Set<number>>(new Set())
+
   useEffect(() => {
     if (!project.id) return
     loadAll(project.id).then(() => ensurePrimaryGroup(project.id!))
   }, [project.id, loadAll, ensurePrimaryGroup])
+
+  const handleAISuggest = async () => {
+    const existingWorlds = await buildAllWorldsOverview(project.id!)
+    const messages = buildWorldSuggestPrompt({
+      projectName: project.name,
+      genres: (project.genres || []).join('、'),
+      concept: concept || project.description || '（未填写，请根据题材自由发挥）',
+      existingWorlds,
+      userHint: '',
+    })
+    const result = await ai.start(messages)
+    if (!result) return
+    const parsed = parseWorldSuggestOutput(result)
+    setSuggested(parsed)
+    setAdoptedIdx(new Set())
+  }
+
+  const handleAdoptSuggested = async (idx: number) => {
+    if (!suggested || adoptedIdx.has(idx)) return
+    const w = suggested[idx]
+    await createGroup({
+      projectId: project.id!,
+      name: w.name,
+      description: w.description,
+      type: w.type,
+      icon: '🌐',
+      order: groups.length + idx,
+      entryCondition: w.entryCondition || undefined,
+      powerRestriction: w.powerRestriction || undefined,
+      plannedChapterCount: w.plannedChapterCount || undefined,
+    })
+    setAdoptedIdx(prev => new Set(prev).add(idx))
+  }
 
   const handleAddWorld = async () => {
     const id = await createGroup({
@@ -75,14 +118,87 @@ export default function WorldGroupOverview({ project }: Props) {
           <section className="space-y-2">
             <div className="flex items-center justify-between">
               <h3 className="text-sm font-semibold text-text-primary">世界列表 ({groups.length})</h3>
-              <button
-                onClick={handleAddWorld}
-                className="flex items-center gap-1.5 px-3 py-1.5 text-xs rounded-lg bg-accent text-white hover:bg-accent-hover transition-colors"
-              >
-                <Plus className="w-3.5 h-3.5" />
-                添加世界
-              </button>
+              <div className="flex items-center gap-1.5">
+                <button
+                  onClick={() => setShowSuggest(v => !v)}
+                  className="flex items-center gap-1.5 px-3 py-1.5 text-xs rounded-lg bg-bg-elevated text-text-secondary border border-border hover:text-accent hover:border-accent/50 transition-colors"
+                >
+                  <Sparkles className="w-3.5 h-3.5" />
+                  AI 建议世界
+                </button>
+                <button
+                  onClick={handleAddWorld}
+                  className="flex items-center gap-1.5 px-3 py-1.5 text-xs rounded-lg bg-accent text-white hover:bg-accent-hover transition-colors"
+                >
+                  <Plus className="w-3.5 h-3.5" />
+                  添加世界
+                </button>
+              </div>
             </div>
+
+            {/* AI 建议世界面板 */}
+            {showSuggest && (
+              <div className="p-3 bg-bg-surface border border-border rounded-lg space-y-2.5">
+                <textarea
+                  value={concept}
+                  onChange={e => setConcept(e.target.value)}
+                  placeholder="描述你的整体故事概念，例如：主角带着诸天系统穿越各个世界，每个世界完成任务后获得奖励...（留空则用项目简介）"
+                  rows={2}
+                  className="w-full px-3 py-2 bg-bg-base border border-border rounded text-sm text-text-primary placeholder:text-text-muted focus:outline-none focus:border-accent resize-none"
+                />
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={handleAISuggest}
+                    disabled={ai.isStreaming}
+                    className="flex items-center gap-1.5 px-3 py-1.5 text-xs rounded-lg bg-accent text-white hover:bg-accent-hover disabled:opacity-50 transition-colors"
+                  >
+                    {ai.isStreaming ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Sparkles className="w-3.5 h-3.5" />}
+                    {ai.isStreaming ? 'AI 思考中...' : '生成建议'}
+                  </button>
+                  {ai.isStreaming && (
+                    <button onClick={ai.stop} className="text-xs text-text-muted hover:text-red-500">停止</button>
+                  )}
+                </div>
+                {ai.error && <div className="text-xs text-red-400">{ai.error}</div>}
+
+                {/* 建议结果 */}
+                {suggested && suggested.length > 0 && (
+                  <div className="space-y-1.5 pt-1">
+                    {suggested.map((w, i) => (
+                      <div key={i} className="flex items-start gap-2 p-2.5 bg-bg-base border border-border rounded-lg">
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-1.5">
+                            <span className="text-sm font-medium text-text-primary">{w.name}</span>
+                            <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-bg-elevated text-text-muted border border-border/50">
+                              {WORLD_GROUP_TYPE_LABELS[w.type]}
+                            </span>
+                            {w.plannedChapterCount > 0 && (
+                              <span className="text-[10px] text-text-muted">{w.plannedChapterCount} 章</span>
+                            )}
+                          </div>
+                          <p className="text-xs text-text-muted mt-0.5">{w.description}</p>
+                          {w.entryCondition && <p className="text-[10px] text-text-muted mt-0.5">进入：{w.entryCondition}</p>}
+                        </div>
+                        <button
+                          onClick={() => handleAdoptSuggested(i)}
+                          disabled={adoptedIdx.has(i)}
+                          className={`shrink-0 flex items-center gap-1 px-2.5 py-1 text-xs rounded transition-colors ${
+                            adoptedIdx.has(i)
+                              ? 'bg-green-600/20 text-green-400 cursor-default'
+                              : 'bg-accent/10 text-accent hover:bg-accent/20'
+                          }`}
+                        >
+                          {adoptedIdx.has(i) ? <><Check className="w-3 h-3" /> 已采纳</> : '采纳'}
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+                {suggested && suggested.length === 0 && (
+                  <p className="text-xs text-text-muted">AI 未返回有效建议，请重试或调整概念描述。</p>
+                )}
+              </div>
+            )}
 
             <div className="space-y-1">
               {groups.map(g => (

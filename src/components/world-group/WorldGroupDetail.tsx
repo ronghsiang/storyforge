@@ -3,9 +3,13 @@
  */
 import { CTextarea, CInput } from '../shared/CompositionInput'
 import { useState, useEffect } from 'react'
-import { ArrowLeft, Save, Loader2 } from 'lucide-react'
+import { ArrowLeft, Save, Loader2, Sparkles, Check } from 'lucide-react'
 import { useWorldGroupStore } from '../../stores/world-group'
-import type { WorldGroup, WorldGroupType } from '../../lib/types'
+import { useAIStream } from '../../hooks/useAIStream'
+import { buildWorldExpandPrompt, parseWorldExpandOutput } from '../../lib/ai/world-group-ai'
+import { buildAllWorldsOverview } from '../../lib/ai/world-group-context'
+import { db } from '../../lib/db/schema'
+import type { WorldGroup, WorldGroupType, Worldview } from '../../lib/types'
 import { WORLD_GROUP_TYPE_LABELS } from '../../lib/types/world-group'
 
 const TYPE_OPTIONS: { value: WorldGroupType; label: string }[] = [
@@ -73,6 +77,44 @@ export default function WorldGroupDetail({ group, onBack }: Props) {
     setSaving(false)
   }
 
+  // ── AI 扩写世界观 ──
+  const ai = useAIStream()
+  const [expanded, setExpanded] = useState(false)
+
+  const handleAIExpand = async () => {
+    if (!group.id || !group.projectId) return
+    setExpanded(false)
+    const otherWorlds = await buildAllWorldsOverview(group.projectId)
+    const sc = await db.storyCores.where('projectId').equals(group.projectId).first()
+    const messages = buildWorldExpandPrompt({
+      worldName: form.name,
+      worldType: WORLD_GROUP_TYPE_LABELS[form.type],
+      draft: form.description || group.name,
+      otherWorlds,
+      storyCore: sc?.mainPlot || sc?.theme || '',
+    })
+    const result = await ai.start(messages)
+    if (!result) return
+    const parsed = parseWorldExpandOutput(result)
+    if (!parsed) return
+    // 写入该世界组的 worldview 记录（可能非当前活跃世界，直接操作 DB）
+    const existing = (await db.worldviews.where('projectId').equals(group.projectId).toArray())
+      .find(w => w.worldGroupId === group.id)
+    const now = Date.now()
+    if (existing?.id) {
+      await db.worldviews.update(existing.id, { ...parsed, updatedAt: now })
+    } else {
+      await db.worldviews.add({
+        projectId: group.projectId,
+        geography: '', history: '', society: '', culture: '', economy: '', rules: '', summary: '',
+        ...parsed,
+        worldGroupId: group.id,
+        createdAt: now, updatedAt: now,
+      } as Worldview)
+    }
+    setExpanded(true)
+  }
+
   const isPrimary = group.type === 'primary'
 
   return (
@@ -86,14 +128,25 @@ export default function WorldGroupDetail({ group, onBack }: Props) {
           <ArrowLeft className="w-4 h-4" />
           返回世界总览
         </button>
-        <button
-          onClick={handleSave}
-          disabled={saving}
-          className="flex items-center gap-2 px-4 py-2 bg-accent text-white rounded-lg hover:bg-accent-hover disabled:opacity-50 transition-colors text-sm font-medium"
-        >
-          {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
-          {saving ? '保存中...' : '保存'}
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={handleAIExpand}
+            disabled={ai.isStreaming}
+            title="根据描述 + 其他世界，AI 生成本世界的完整世界观"
+            className="flex items-center gap-1.5 px-3 py-2 bg-bg-elevated text-text-secondary border border-border rounded-lg hover:text-accent hover:border-accent/50 disabled:opacity-50 transition-colors text-sm"
+          >
+            {ai.isStreaming ? <Loader2 className="w-4 h-4 animate-spin" /> : expanded ? <Check className="w-4 h-4 text-green-400" /> : <Sparkles className="w-4 h-4" />}
+            {ai.isStreaming ? 'AI 扩写中...' : expanded ? '已写入世界观' : 'AI 扩写世界观'}
+          </button>
+          <button
+            onClick={handleSave}
+            disabled={saving}
+            className="flex items-center gap-2 px-4 py-2 bg-accent text-white rounded-lg hover:bg-accent-hover disabled:opacity-50 transition-colors text-sm font-medium"
+          >
+            {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
+            {saving ? '保存中...' : '保存'}
+          </button>
+        </div>
       </div>
 
       <div className="pb-4 border-b border-border/40">

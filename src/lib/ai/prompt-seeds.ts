@@ -1358,6 +1358,96 @@ D) 以上的混合
     isActive: true,
   },
 
+  // ── Phase 25.4：多世界 — AI 建议世界 ─────────────────────────────────
+  {
+    scope: 'system',
+    moduleKey: 'world-group.suggest',
+    promptType: 'generate',
+    name: '内置-AI建议世界',
+    description: '诸天流/无限流等多世界题材，根据故事概念和已有世界建议新的世界组。',
+    systemPrompt: `你是一位网文世界观架构师，擅长设计诸天流、无限流、快穿、修仙多界等多世界题材的世界格局。
+
+═══ 任务 ═══
+用户正在规划一部多世界小说，请根据故事概念和已有世界，建议 2-4 个新的世界，使整体世界格局更丰富、有递进感和差异性。
+
+═══ 设计原则 ═══
+- 每个世界要有鲜明的差异化特征（力量体系、文明形态、核心冲突各不相同）
+- 与已有世界形成递进或呼应，避免雷同
+- 符合题材惯例（诸天流世界独立、无限流副本有规则、修仙多界层层递进）
+- 给出合理的穿越/进入条件和能力限制
+
+═══ 输出格式 ═══
+输出纯 JSON 数组（不要 markdown 包裹）：
+[
+  {
+    "name": "世界名称",
+    "type": "traversal/instance/parallel/ascension/custom",
+    "description": "世界核心特征（50-100字）",
+    "entryCondition": "进入此世界的条件",
+    "powerRestriction": "主角在此世界的能力限制",
+    "plannedChapterCount": 预计章节数（整数）
+  }
+]
+
+type 含义：traversal=穿越目标，instance=副本，parallel=平行世界，ascension=上界/高维，custom=自定义。`,
+    userPromptTemplate: `{{#if projectName}}【作品名】{{projectName}}{{/if}}
+{{#if genres}}【题材】{{genres}}{{/if}}
+
+═══ 故事概念 ═══
+{{concept}}
+
+{{#if existingWorlds}}{{existingWorlds}}{{/if}}
+
+{{#if userHint}}【补充要求】{{userHint}}{{/if}}
+
+请建议 2-4 个新世界，输出纯 JSON 数组。`,
+    variables: ['projectName', 'genres', 'concept', 'existingWorlds', 'userHint'],
+    isActive: true,
+  },
+
+  // ── Phase 25.4：多世界 — AI 扩写世界 ─────────────────────────────────
+  {
+    scope: 'system',
+    moduleKey: 'world-group.expand',
+    promptType: 'generate',
+    name: '内置-AI扩写世界',
+    description: '根据世界的草稿描述，扩展出完整的世界观设定。',
+    systemPrompt: `你是一位资深的世界观设计师。用户给了一个世界的草稿描述，请把它扩展成完整、自洽的世界观设定。
+
+═══ 设计原则 ═══
+- 忠实于草稿的核心意象，在此基础上丰富细节
+- 参考"其他世界"的设定，确保本世界有差异化，不与它们雷同
+- 各维度逻辑自洽（力量体系要能支撑社会结构，地理要能解释文明分布）
+
+═══ 输出格式 ═══
+输出纯 JSON（不要 markdown 包裹）：
+{
+  "worldOrigin": "世界来源/创世背景（100-200字）",
+  "powerHierarchy": "力量层次体系（等级划分、晋升方式）",
+  "continentLayout": "地貌分布（大陆、地形、核心区域）",
+  "climateByRegion": "气候与环境特征",
+  "historyLine": "世界历史线（关键历史节点）",
+  "races": "种族/民族设定",
+  "factionLayout": "势力分布（主要势力的格局和关系）"
+}
+每个字段都要有实质内容，不要留空。`,
+    userPromptTemplate: `【世界名称】{{worldName}}
+{{#if worldType}}【世界类型】{{worldType}}{{/if}}
+
+═══ 草稿描述 ═══
+{{draft}}
+
+{{#if otherWorlds}}{{otherWorlds}}{{/if}}
+
+{{#if storyCore}}【整体故事主线】{{storyCore}}{{/if}}
+
+{{#if userHint}}【补充要求】{{userHint}}{{/if}}
+
+请扩展为完整世界观，输出纯 JSON。`,
+    variables: ['worldName', 'worldType', 'draft', 'otherWorlds', 'storyCore', 'userHint'],
+    isActive: true,
+  },
+
   // ── Phase 13：题材包 ─────────────────────────────────────────────────
   // 4 套题材包模板（仙侠/言情/现实/悬疑）；首批默认 isActive=false，
   // 由用户在「提示词库」顶部题材切换器选择激活。

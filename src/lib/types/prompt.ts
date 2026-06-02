@@ -44,6 +44,9 @@ export type PromptModuleKey =
   | 'plot.character-driven'
   // —— Phase 26.4 灵感反推 ——
   | 'inspiration.reverse'
+  // —— Phase 25.4 多世界 ——
+  | 'world-group.suggest'
+  | 'world-group.expand'
   // —— Phase 19 作品学习 ——
   | 'master.analyze-chunk'
   | 'master.extract-beats'

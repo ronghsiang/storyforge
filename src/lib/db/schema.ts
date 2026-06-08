@@ -282,6 +282,11 @@ class StoryForgeDB extends Dexie {
     this.version(27).stores({
       worldRulesProfiles: '++id, projectId, worldGroupId',
     })
+
+    // v28: 导入会话记录多世界目标世界
+    this.version(28).stores({
+      importSessions: '++id, projectId, status, updatedAt, fileHash, targetWorldGroupId',
+    })
   }
 }
 

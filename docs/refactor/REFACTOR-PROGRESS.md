@@ -55,7 +55,7 @@
 | 2.1 Phase 40 `worldRulesProfiles` multiworld | Done | `refactor/phase-2-task-2.1` / this task commit | `worldRulesProfiles` is now world-scoped in schema/store/registry/export/import/context injection; per-world UI tabs and regression coverage added. |
 | 2.2 `chapter-adapter` real `worldRulesContext` | Done | `refactor/phase-2-task-2.2` / this task commit | `chapter.content` now receives the assembled `worldRules` segment through `buildChapterContentPrompt`; R-11 covers rendered prompt output. |
 | 2.3 `AIFieldCard` current value injection | Done | `refactor/phase-2-task-2.3` / this task commit | Added expand/rewrite/polish mode plumbing for single-field AI; current value is included by default and omitted for rewrite mode. |
-| 2.4 `chunk-writer` target `worldGroupId` | Pending | - | Route import chunk writes to the selected multiworld target. |
+| 2.4 `chunk-writer` target `worldGroupId` | Done | `refactor/phase-2-task-2.4` / this task commit | Import sessions and chunk writes now route project-imported worldview/characters/outline data to the selected target world; R-13 covers cross-world same-name isolation. |
 | 2.5 Batch detail/content `worldContextResolver` | Pending | - | Resolve multiworld context per chapter for batch detailed outline/content generation. |
 | 2.6 Character JSON reference remap | Pending | - | Remove/replace JSON-array role references on character delete/merge. |
 | 2.7 Selective state extraction | Pending | - | Replace full state context in extraction with selective state recall. |

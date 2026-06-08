@@ -34,7 +34,9 @@ export interface ApplyChunkCounts {
 export async function applyChunkResult(
   projectId: number,
   result: UnifiedParseResult,
+  worldGroupId: number | null = null,
 ): Promise<ApplyChunkCounts> {
+  const targetWorldGroupId = worldGroupId ?? null
   let worldviewFields = 0
   let charactersAdded = 0
   let outlineAdded = 0
@@ -42,7 +44,7 @@ export async function applyChunkResult(
   // ── 世界观：合并写（Phase 30.5: 句子级去重） ────────────────────
   if (result.worldview) {
     const wvStore = useWorldviewStore.getState()
-    await wvStore.loadAll(projectId)
+    await wvStore.loadAll(projectId, targetWorldGroupId)
     const existing = useWorldviewStore.getState().worldview
     const patch: Record<string, string> = {}
     for (const [k, v] of Object.entries(result.worldview)) {
@@ -63,8 +65,14 @@ export async function applyChunkResult(
       }
     }
     if (Object.keys(patch).length > 0) {
-      await adopt({ projectId, target: 'worldviews', mode: 'replace', data: patch })
-      await wvStore.loadAll(projectId)
+      await adopt({
+        projectId,
+        worldGroupId: targetWorldGroupId,
+        target: 'worldviews',
+        mode: 'replace',
+        data: patch,
+      })
+      await wvStore.loadAll(projectId, targetWorldGroupId)
     }
   }
 
@@ -73,6 +81,7 @@ export async function applyChunkResult(
     const chStore = useCharacterStore.getState()
     await chStore.loadAll(projectId)
     const existingChars = useCharacterStore.getState().characters
+      .filter(ch => (ch.homeWorldGroupId ?? null) === targetWorldGroupId)
     // 建立名字→ID映射
     const nameMap = new Map<string, number>()
     for (const ch of existingChars) {
@@ -112,11 +121,13 @@ export async function applyChunkResult(
           const merged = mergeCharacterFields(existingFields, incomingFields)
           await adopt({
             projectId,
+            worldGroupId: targetWorldGroupId,
             target: 'characters',
             mode: 'add',
             data: {
               name: c.name.trim(),
               role,
+              homeWorldGroupId: targetWorldGroupId,
               ...merged,
             },
           })
@@ -127,11 +138,13 @@ export async function applyChunkResult(
         const charName = String(c.name).trim()
         await adopt({
           projectId,
+          worldGroupId: targetWorldGroupId,
           target: 'characters',
           mode: 'add',
           data: {
             name: charName,
             role,
+            homeWorldGroupId: targetWorldGroupId,
             shortDescription: incomingFields.shortDescription,
             appearance: incomingFields.appearance,
             personality: incomingFields.personality,
@@ -144,7 +157,8 @@ export async function applyChunkResult(
         })
         // 更新映射以便同块内后续角色也能去重
         const newChars = await db.characters.where('projectId').equals(projectId).toArray()
-        const added = newChars.find(ch => ch.name === charName)
+        const added = newChars.find(ch =>
+          ch.name === charName && (ch.homeWorldGroupId ?? null) === targetWorldGroupId)
         if (added?.id != null) nameMap.set(added.name, added.id)
         charactersAdded++
       }
@@ -157,6 +171,7 @@ export async function applyChunkResult(
     const olStore = useOutlineStore.getState()
     await olStore.loadAll(projectId)
     const existingNodes = [...useOutlineStore.getState().nodes]
+      .filter(n => (n.worldGroupId ?? null) === targetWorldGroupId)
 
     // 已有卷节点的名称→ID映射（用于匹配 AI 返回的卷标题）
     const volumeMap = new Map<string, number>()
@@ -236,11 +251,13 @@ export async function applyChunkResult(
 
       const adopted = await adopt({
         projectId,
+        worldGroupId: targetWorldGroupId,
         target: 'outlineNodes',
         mode: 'add',
         data: {
           parentId,
           type: isVolume ? 'volume' : 'chapter',
+          worldGroupId: targetWorldGroupId,
           title: node.title.trim(),
           summary: String(node.summary || ''),
           order: orderRef.value++,
@@ -255,6 +272,7 @@ export async function applyChunkResult(
         projectId,
         parentId,
         type: isVolume ? 'volume' : 'chapter',
+        worldGroupId: targetWorldGroupId,
         title: node.title.trim(),
         summary: String(node.summary || ''),
         order: orderRef.value - 1,

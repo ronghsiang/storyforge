@@ -9,7 +9,7 @@
 | 2.1 Phase 40 `worldRulesProfiles` multiworld | Done | `refactor/phase-2-task-2.1` / this task commit | `worldRulesProfiles` is now project+world scoped, loaded by world tab, exported/imported with world-group remap, lifecycle-covered by `PROJECT_TABLES`, and injected through `CONTEXT_SOURCES` with per-world timeline/keyword filtering. |
 | 2.2 `chapter-adapter` real `worldRulesContext` | Done | `refactor/phase-2-task-2.2` / this task commit | `buildChapterContentPrompt` now accepts and renders `worldRulesContext`; `ChapterEditor` passes the assembled `worldRules` segment into chapter prose generation. |
 | 2.3 `AIFieldCard` current value injection | Done | `refactor/phase-2-task-2.3` / this task commit | Single-field AI generation now has expand/rewrite/polish modes; expand/polish include current value, rewrite ignores current value. |
-| 2.4 `chunk-writer` target `worldGroupId` | Pending | - | Import sessions and chunk writes should route imported data to the selected world. |
+| 2.4 `chunk-writer` target `worldGroupId` | Done | `refactor/phase-2-task-2.4` / this task commit | Import sessions record a target world, the confirm modal lets multiworld users choose it, and chunk writes stamp worldview/characters/outline to that world. |
 | 2.5 Batch detail/content `worldContextResolver` | Pending | - | Batch detailed outline/content generation should resolve context per chapter/world. |
 | 2.6 Character JSON reference remap | Pending | - | Character delete/merge should remove or rewrite JSON-array references. |
 | 2.7 Selective state extraction | Pending | - | State extraction should use selective state recall instead of full state context. |
@@ -61,3 +61,21 @@
 - `story.generate`, `worldview.dimension`, and `character.dimension` adapters include mode guidance; expand/polish include current field content, rewrite deliberately ignores it.
 - Existing story core and worldview single-field generation controls now pass their current field value and expose expand/rewrite/polish mode selection.
 - R-12 verifies rendered prompts include current value in expand mode and omit it in rewrite mode.
+
+## 2.4 Verification Evidence
+
+- `npx tsc --noEmit`: passed.
+- `npm test -- tests/regression/R-13-import-target-world.test.ts`: 1 file / 1 test passed.
+- `npm test`: 16 files / 44 tests passed.
+- `npm run check:required-tables`: 45 tables match `schema.ts`.
+- `npm run build`: passed; existing Vite dynamic-import/chunk-size warnings only.
+
+## 2.4 Completion Notes
+
+- DB schema v28 indexes `importSessions.targetWorldGroupId`.
+- `ImportSession` records `targetWorldGroupId` for project imports.
+- `ImportConfirmModal` shows a target-world selector for multiworld project imports.
+- `ImportDocPanel` stores the selected target world in the session and stamps pre-created volume skeletons.
+- `pipeline` passes `session.targetWorldGroupId` into `applyChunkResult`.
+- `chunk-writer` scopes worldview merge, character de-duplication, and outline volume reuse to the target world, then stamps new rows through `adopt()`.
+- R-13 verifies imported worldview, characters, and outline nodes land in the selected world and do not merge same-name characters from another world.

@@ -265,7 +265,7 @@ export interface ProjectExportData {
 
   // ── 此前漏导出（会丢数据），补全 ──
   importantLocations?: (Omit<ImportantLocation, 'id' | 'projectId' | 'parentId'> & { _exportId: number; _parentExportId: number | null })[]
-  worldRulesProfiles?: Omit<WorldRulesProfile, 'id' | 'projectId'>[]
+  worldRulesProfiles?: (Omit<WorldRulesProfile, 'id' | 'projectId' | 'worldGroupId'> & WorldGroupExportRef)[]
   codexCategories?: (Omit<CodexCategory, 'id' | 'projectId' | 'parentId' | 'worldGroupId'> & WorldGroupExportRef & { _exportId: number; _parentExportId: number | null })[]
   codexEntries?: (Omit<CodexEntry, 'id' | 'projectId' | 'categoryId' | 'worldGroupId'> & WorldGroupExportRef & { _categoryExportId: number })[]
 }
@@ -520,7 +520,7 @@ export async function exportProjectJSON(projectId: number): Promise<ProjectExpor
       _exportId: i,
       _parentExportId: parentId != null ? (locationIdMap.get(parentId) ?? null) : null,
     })),
-    worldRulesProfiles: worldRulesProfiles.map(({ id: _, projectId: _p, ...rest }) => rest),
+    worldRulesProfiles: worldRulesProfiles.map(({ id: _, projectId: _p, ...rest }) => withWorldGroupExportId(rest)),
     codexCategories: codexCategories.map(({ id: _, projectId: _p, parentId, ...rest }, i) => ({
       ...withWorldGroupExportId(rest),
       _exportId: i,
@@ -864,7 +864,7 @@ export async function importProjectJSON(data: ProjectExportData): Promise<number
 
   // 26.8 真实与幻想（世界规则）—— 此前漏导入
   for (const p of data.worldRulesProfiles || []) {
-    await db.worldRulesProfiles.add({ ...p, projectId: newProjectId } as WorldRulesProfile)
+    await db.worldRulesProfiles.add({ ...importWorldScoped(p), projectId: newProjectId } as WorldRulesProfile)
   }
 
   // 26.9 词条分类（树，重建 parentId）—— 此前漏导入

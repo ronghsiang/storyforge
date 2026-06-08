@@ -48,6 +48,19 @@
 | 1.3a CONTEXT_SOURCES + assembleContext() | Done | `refactor/phase-1-task-1.3a` / this task commit | Pure-add unified read/context layer with 18 sources, registry validation, true trimming, and tests. |
 | 1.3b AI generation caller migration | Done | `refactor/phase-1-task-1.3b` / this task commit | Switched chapter writing, outline/detail generation, character/foreshadow/story-arc/scene-verify/worldview AI context reads to `assembleContext()`; component/hook old-context grep is clean. |
 
+## Phase 2 Content Integrity and Multiworld Linkage
+
+| Task | Status | Branch / Commit | Summary |
+|---|---|---|---|
+| 2.1 Phase 40 `worldRulesProfiles` multiworld | Done | `refactor/phase-2-task-2.1` / this task commit | `worldRulesProfiles` is now world-scoped in schema/store/registry/export/import/context injection; per-world UI tabs and regression coverage added. |
+| 2.2 `chapter-adapter` real `worldRulesContext` | Pending | - | Make chapter content prompt actually consume the declared `worldRulesContext`. |
+| 2.3 `AIFieldCard` current value injection | Pending | - | Include current field value in single-field AI generation and add rewrite/expand/polish modes. |
+| 2.4 `chunk-writer` target `worldGroupId` | Pending | - | Route import chunk writes to the selected multiworld target. |
+| 2.5 Batch detail/content `worldContextResolver` | Pending | - | Resolve multiworld context per chapter for batch detailed outline/content generation. |
+| 2.6 Character JSON reference remap | Pending | - | Remove/replace JSON-array role references on character delete/merge. |
+| 2.7 Selective state extraction | Pending | - | Replace full state context in extraction with selective state recall. |
+| 2.8 Remaining P1 fixes | Pending | - | Close remaining P1 items listed in `MASTER-BLUEPRINT.md`. |
+
 ## Execution Notes
 
 - The reviewer is temporarily unavailable. Work is proceeding as stacked task branches and commits for later independent review.

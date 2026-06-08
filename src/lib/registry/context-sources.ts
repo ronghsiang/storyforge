@@ -209,10 +209,11 @@ export const CONTEXT_SOURCES: ContextSource[] = [
   {
     key: 'worldRules',
     label: '真实与幻想规则',
-    scope: 'project',
+    scope: 'world',
     layer: 'L1',
     budgetTokens: 1200,
-    read: input => buildWorldRulesContext(input.projectId),
+    requiresWorldGroupId: true,
+    read: input => buildWorldRulesContext(input.projectId, input.worldGroupId),
   },
   {
     key: 'historical',

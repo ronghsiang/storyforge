@@ -76,11 +76,14 @@ describe('R-03: 多世界导出/导入 worldGroupId remap', () => {
     await db.historicalTimelineEvents.add({ projectId, worldGroupId: sideId, era: 'custom', year: 1, date: '元年', title: '开端', description: '', isHistorical: false, createdAt: now, updatedAt: now } as any)
     await db.historicalKeywords.add({ projectId, worldGroupId: sideId, keyword: '异火', category: 'technology', era: 'custom', description: '', createdAt: now, updatedAt: now } as any)
     await db.codexEntries.add({ projectId, worldGroupId: sideId, categoryId, name: '青莲地心火', summary: '', description: '', fields: '{}', refs: '{}', order: 0, createdAt: now, updatedAt: now } as any)
+    await db.worldRulesProfiles.add({ projectId, worldGroupId: sideId, entries: {}, customNodes: [], globalNote: '斗气世界规则', createdAt: now, updatedAt: now } as any)
     await db.worldGroupLinks.add({ projectId, fromGroupId: primaryId, toGroupId: sideId, type: 'portal', createdAt: now } as any)
 
     const exported = await exportProjectJSON(projectId)
     expect((exported.worldviews[0] as any).worldGroupId).toBeUndefined()
     expect((exported.worldviews[0] as any)._worldGroupExportId).toBe(1)
+    expect((exported.worldRulesProfiles?.[0] as any).worldGroupId).toBeUndefined()
+    expect((exported.worldRulesProfiles?.[0] as any)._worldGroupExportId).toBe(1)
     expect((exported.characters[0] as any).homeWorldGroupId).toBeUndefined()
     expect((exported.characters[0] as any)._homeWorldGroupExportId).toBe(1)
 
@@ -108,6 +111,7 @@ describe('R-03: 多世界导出/导入 worldGroupId remap', () => {
     expect(await countWorldGroupId(db.historicalKeywords)).toBe(1)
     expect(await countWorldGroupId(db.codexCategories)).toBe(1)
     expect(await countWorldGroupId(db.codexEntries)).toBe(1)
+    expect(await countWorldGroupId(db.worldRulesProfiles)).toBe(1)
 
     const chars = await db.characters.where('projectId').equals(importedProjectId).toArray()
     expect(chars.filter(char => char.homeWorldGroupId === importedSideId)).toHaveLength(1)

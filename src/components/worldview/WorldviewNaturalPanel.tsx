@@ -11,8 +11,8 @@ import AIStreamOutput from '../shared/AIStreamOutput'
 import PromptRunPanel from '../shared/PromptRunPanel'
 import type { Project, NaturalResources } from '../../lib/types'
 
-async function buildRulesSourceContext(projectId: number): Promise<string> {
-  return (await assembleContext({ projectId, worldGroupId: null, sourceKeys: ['worldRules'] })).text
+async function buildRulesSourceContext(projectId: number, worldGroupId: number | null): Promise<string> {
+  return (await assembleContext({ projectId, worldGroupId, sourceKeys: ['worldRules'] })).text
 }
 
 interface Props { project: Project }
@@ -181,13 +181,14 @@ function SimpleFieldEditor({ field, value, onChange, project, contextSummary, on
   const [systemOverride, setSystemOverride] = useState<string | null>(null)
   const [userOverride, setUserOverride] = useState<string | null>(null)
   const ai = useAIStream()
+  const activeGroupId = useWorldGroupStore(s => s.activeGroupId)
 
   useEffect(() => {
     onStreamingChange(ai.isStreaming)
   }, [ai.isStreaming, onStreamingChange])
 
   const handleGenerate = async () => {
-    const rulesCtx = await buildRulesSourceContext(project.id!)
+    const rulesCtx = await buildRulesSourceContext(project.id!, project.enableMultiWorld ? activeGroupId : null)
     const opts = {
       parameterValues: {
         ...parameterValues,

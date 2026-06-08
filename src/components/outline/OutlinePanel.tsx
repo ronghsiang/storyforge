@@ -222,6 +222,13 @@ export default function OutlinePanel({ project, onOpenChapter }: Props) {
             return resolved.text
           }
           : undefined,
+        worldRulesContextResolver: project.enableMultiWorld
+          ? async (volId) => {
+            const vol = nodes.find(n => n.id === volId)
+            const resolved = await buildOutlineAssembledContext(vol?.worldGroupId ?? null, volId)
+            return contextPart(resolved, 'worldRules')
+          }
+          : undefined,
         userHint: hint || undefined,
         characterContext: charCtx,
         worldRulesContext: rulesCtx,

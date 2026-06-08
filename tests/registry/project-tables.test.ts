@@ -37,12 +37,12 @@ describe('Phase 1.1a · PROJECT_TABLES 注册表', () => {
   })
 
   describe('派生选择器', () => {
-    it('worldScopedTables 包含已知的 10 张多世界表', () => {
+    it('worldScopedTables 包含已知多世界表', () => {
       const names = worldScopedTables().map(s => s.name)
       for (const t of [
         'worldviews', 'powerSystems', 'geographies', 'histories', 'worldNodes',
         'historicalTimelineEvents', 'historicalKeywords', 'outlineNodes',
-        'codexCategories', 'codexEntries',
+        'codexCategories', 'codexEntries', 'worldRulesProfiles',
       ]) {
         expect(names, `worldScoped 应含 ${t}`).toContain(t)
       }
@@ -70,6 +70,7 @@ describe('Phase 1.1a · PROJECT_TABLES 注册表', () => {
       expect(tableNames).toContain('outlineNodes')
       expect(tableNames).toContain('worldGroups')
       expect(tableNames).toContain('codexEntries')
+      expect(tableNames).toContain('worldRulesProfiles')
     })
   })
 

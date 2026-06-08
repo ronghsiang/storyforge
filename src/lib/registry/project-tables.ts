@@ -65,8 +65,9 @@ export const PROJECT_TABLES: TableSpec[] = [
     note: '⚠️ 无 worldGroupId,当前全局注入写作上下文' },
 
   { table: db.worldRulesProfiles, name: 'worldRulesProfiles', owner: 'project',
-    exportable: true,
-    note: '当前项目级单例(&projectId);Phase 40 后改 worldScoped(每世界一套)' },
+    worldScoped: true, exportable: true,
+    exportRemap: [{ field: 'worldGroupId', remapVia: 'worldGroups' }],
+    note: '真实与幻想规则每世界一套;null 为单世界/默认主世界' },
 
   // ───────────────────── 角色 ─────────────────────
   { table: db.characters, name: 'characters', owner: 'project', homeWorldScoped: true,

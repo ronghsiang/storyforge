@@ -78,6 +78,76 @@ describe('Phase 1.3a · 统一上下文装配层', () => {
     expect(assembled.text).not.toContain('澜青')
   })
 
+  it('worldRules 按 worldGroupId 隔离 profile 与历史辅助数据', async () => {
+    const now = Date.now()
+    const projectId = await createProject()
+    const worldA = await db.worldGroups.add({
+      projectId, name: '镜城', type: 'primary', order: 0, createdAt: now, updatedAt: now,
+    } as any) as number
+    const worldB = await db.worldGroups.add({
+      projectId, name: '雾都', type: 'parallel', order: 1, createdAt: now, updatedAt: now,
+    } as any) as number
+
+    await db.worldRulesProfiles.add({
+      projectId,
+      worldGroupId: worldA,
+      entries: {
+        'era.period': {
+          historicalAnchors: '镜城沿用宋代市舶司制度',
+          fictionalAdaptations: '镜城增设镜税',
+          priority: 'balanced',
+        },
+      },
+      customNodes: [],
+      createdAt: now,
+      updatedAt: now,
+    } as any)
+    await db.worldRulesProfiles.add({
+      projectId,
+      worldGroupId: worldB,
+      entries: {
+        'era.period': {
+          historicalAnchors: '雾都沿用维多利亚街区制度',
+          fictionalAdaptations: '雾都由雾钟议会统治',
+          priority: 'fictional',
+        },
+      },
+      customNodes: [],
+      createdAt: now,
+      updatedAt: now,
+    } as any)
+    await db.historicalTimelineEvents.add({
+      projectId, worldGroupId: worldA, era: 'custom', year: 1, date: '镜元年',
+      title: '镜城开埠', description: '', isHistorical: false, createdAt: now, updatedAt: now,
+    } as any)
+    await db.historicalTimelineEvents.add({
+      projectId, worldGroupId: worldB, era: 'custom', year: 1, date: '雾元年',
+      title: '雾钟敲响', description: '', isHistorical: false, createdAt: now, updatedAt: now,
+    } as any)
+    await db.historicalKeywords.add({
+      projectId, worldGroupId: worldA, keyword: '镜税', category: 'politics', era: 'custom',
+      description: '', createdAt: now, updatedAt: now,
+    } as any)
+    await db.historicalKeywords.add({
+      projectId, worldGroupId: worldB, keyword: '雾钟', category: 'politics', era: 'custom',
+      description: '', createdAt: now, updatedAt: now,
+    } as any)
+
+    const assembled = await assembleContext({
+      projectId,
+      worldGroupId: worldA,
+      sourceKeys: ['worldRules'],
+    })
+
+    expect(assembled.included).toEqual(['worldRules'])
+    expect(assembled.text).toContain('镜城沿用宋代市舶司制度')
+    expect(assembled.text).toContain('镜城开埠')
+    expect(assembled.text).toContain('镜税')
+    expect(assembled.text).not.toContain('雾都沿用维多利亚街区制度')
+    expect(assembled.text).not.toContain('雾钟敲响')
+    expect(assembled.text).not.toContain('雾钟')
+  })
+
   it('assembleContext 真裁剪:预算不足时 L3 从最终文本移除', async () => {
     const now = Date.now()
     const projectId = await createProject()

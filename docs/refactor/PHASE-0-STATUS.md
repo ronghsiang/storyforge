@@ -2,6 +2,21 @@
 
 > Purpose: record Phase 0 execution progress after each completed step so the project author can review partial state at any time.
 
+## Phase 0 Task Board
+
+| Task | Status | Branch / Commit | Scope | Required Verification |
+|---|---|---|---|---|
+| 0.1 deleteGroup transaction scope | Done | `refactor/phase-0-task-0.1` / `45ac028` | Fix deleteGroup Dexie transaction table scope. | `npm test -- R-01`; `npm test`; `npx tsc --noEmit`; `npm run build` |
+| 0.2 migrateToMultiWorld transaction scope | Done | `refactor/phase-0-task-0.2` / `31cb206` | Add `db.codexEntries` to migration transaction scope. | `npm test -- R-02`; `npm test -- R-01 R-02`; `npm test`; `npx tsc --noEmit`; `npm run build` |
+| 0.3 ensureSchema delete-db risk | Done | `refactor/phase-0-task-0.3` / this task commit | Prevent production schema self-check from calling `Dexie.delete()`; align required table list with DB v26. | `npm test -- R-17`; `npm run check:required-tables`; `npm test`; `tsc`; build |
+| 0.4 BUG-EXPORT-WG worldGroupId remap | Pending | TBD | Export world group ownership by export ids and import with correct remap. | Multiworld export/import roundtrip regression; `npm test`; `tsc`; build |
+| 0.5 importProjectJSON transaction + FK fail-fast | Pending | TBD | Wrap import in transaction and abort/rollback on invalid remapped FK. | Broken JSON import rollback regression; `npm test`; `tsc`; build |
+| 0.6 deleteProject indirect ownership cleanup | Pending | TBD | Delete import sessions/logs/files/jobs and master-study blobs when deleting project. | Delete-project residue regression; `npm test`; `tsc`; build |
+| 0.7 deleteNode chapter cascade | Pending | TBD | Make outline node deletion use chapter cascade so child tables such as emotionBeatCards are cleaned. | Delete-node cascade regression; `npm test`; `tsc`; build |
+| 0.8 migrateToMultiWorld outlineNodes stamping | Pending | TBD | Stamp outline nodes to primary world during multiworld migration. | Outline visibility/stamping regression; `npm test`; `tsc`; build |
+
+Execution note: because the reviewer is temporarily unavailable, Phase 0 tasks after 0.1 are being implemented as stacked task branches and commits. They still require later independent review before main merge.
+
 ## Phase 0.1 - deleteGroup Transaction Scope
 
 ### 2026-06-08 17:02:38 CST
@@ -74,3 +89,37 @@
 - Result: passed with zero errors.
 - Command: `npm run build`.
 - Result: passed. Vite emitted existing bundle-size/dynamic-import warnings; no build failure.
+
+## Phase 0.3 - ensureSchema Delete-DB Risk
+
+### 2026-06-08 17:14:00 CST
+
+- Status: started.
+- Branch: `refactor/phase-0-task-0.3`.
+- Branch base: stacked on top of `refactor/phase-0-task-0.2` because the reviewer is temporarily unavailable and the project author requested continuing.
+- Scope: `MASTER-BLUEPRINT.md` Phase 0.3, production schema self-check must not delete IndexedDB.
+- Added project-level progress board: `docs/refactor/REFACTOR-PROGRESS.md`, including the Phase 1 three-registry foundation work so Phase 0 is not confused with the whole refactor.
+
+### 2026-06-08 17:21:26 CST
+
+- Status: Phase 0.3 code path implemented and regression added.
+- Changed `src/lib/db/ensure-schema.ts`: added `REQUIRED_TABLES_V26` with all 45 DB v26 tables; added safe production behavior that blocks reset instead of calling `Dexie.delete()`.
+- Changed `src/main.tsx`: passes `allowReset: import.meta.env.DEV`, so production builds do not auto-reset IndexedDB.
+- Added `tests/regression/R-17-ensure-schema.test.ts`: checks table-list/schema consistency and verifies production missing-table path does not call `Dexie.delete()`.
+- Command: `npm test -- R-17`.
+- Result: passed, 1 file / 2 tests.
+
+### 2026-06-08 17:22:56 CST
+
+- Status: Phase 0.3 verification passed.
+- Added `scripts/check-required-tables.mjs` and `npm run check:required-tables` so table-list drift fails locally/CI.
+- Command: `npm test -- R-01 R-02 R-17`.
+- Result: passed, 3 files / 5 tests.
+- Command: `npm test`.
+- Result: passed, 4 files / 9 tests.
+- Command: `npx tsc --noEmit`.
+- Result: passed with zero errors.
+- Command: `npm run build`.
+- Result: passed. Vite emitted existing bundle-size/dynamic-import warnings; no build failure.
+- Command: `npm run check:required-tables`.
+- Result: passed, 45 tables match `schema.ts`.

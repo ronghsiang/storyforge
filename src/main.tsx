@@ -6,7 +6,7 @@ import ErrorBoundary from './components/shared/ErrorBoundary'
 import { ToastProvider } from './components/shared/Toast'
 import { usePromptStore } from './stores/prompt'
 import { useWorkflowStore } from './stores/workflow'
-import { ensureSchema } from './lib/db/ensure-schema'
+import { ensureSchema, REQUIRED_TABLES_V26 } from './lib/db/ensure-schema'
 import { migrateMasterDataToReferences } from './lib/reference-analysis/migrate-master-data'
 import './index.css'
 
@@ -22,23 +22,10 @@ if (THEME_MIGRATE[savedTheme]) {
 }
 document.documentElement.setAttribute('data-theme', savedTheme)
 
-// 当前代码必须存在的表（每次新增表都要在这里登记）
-const REQUIRED_TABLES = [
-  'projects', 'worldviews', 'storyCores', 'powerSystems',
-  'characters', 'factions', 'outlineNodes', 'chapters', 'foreshadows',
-  'geographies', 'histories', 'itemSystems', 'creativeRules',
-  'characterRelations', 'snapshots', 'references',
-  'promptTemplates',
-  'detailedOutlines', 'importJobs',
-  'promptWorkflows',
-  'referenceChunkAnalysis',
-  'worldNodes',
-]
-
 async function bootstrap() {
-  // 1. Schema 健康自检：缺表自动删库重建（开发期无真实用户）
+  // 1. Schema 健康自检：开发环境可自动 reset，生产环境绝不自动删库。
   try {
-    await ensureSchema(REQUIRED_TABLES)
+    await ensureSchema(REQUIRED_TABLES_V26, { allowReset: import.meta.env.DEV })
   } catch (e) {
     console.error('[bootstrap] schema check failed:', e)
   }

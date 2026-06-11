@@ -27,16 +27,6 @@ describe('Codex C6 · 分类全貌 + 词条星级', () => {
   beforeEach(async () => { await db.delete(); await db.open() })
   afterEach(async () => { db.close() })
 
-  it('分类 overview(全貌)能持久化', async () => {
-    const pid = await createProject()
-    const store = useCodexStore.getState()
-    await store.loadAll(pid)
-    const cat = await cityCategory(pid)
-    await store.updateCategory(cat.id!, { overview: '本世界城邑沿三大水系分布，北塞南港。' })
-    const after = await db.codexCategories.get(cat.id!)
-    expect(after!.overview).toContain('三大水系')
-  })
-
   it('importance(星级)能持久化', async () => {
     const pid = await createProject()
     const store = useCodexStore.getState()

@@ -185,27 +185,7 @@ export default function CodexPanel({ project, fixedDomain, embedded }: Props) {
           </button>
         </div>
 
-        {/* 右侧区域：竖向 —— 先「全貌」(上)，再「词条」(下) */}
-        <div className="flex-1 flex flex-col min-h-0">
-          {/* 全貌（整体概述）：逻辑上先写整体，放最上方 */}
-          {activeCat && (
-            <div className="p-3 border-b border-border shrink-0">
-              <div className="text-xs text-text-muted mb-1">
-                📋 「{activeCat.name}」全貌 · 整体概述<span className="text-text-muted/70">（先写整体格局，再到下方细化为一个个词条）</span>
-              </div>
-              <CTextarea
-                value={activeCat.overview || ''}
-                onChange={(e) => updateCategory(activeCat.id!, { overview: e.target.value })}
-                placeholder={`描述「${activeCat.name}」的整体格局／概况……`}
-                rows={3}
-                className="w-full px-3 py-2 rounded-lg bg-bg-elevated border border-border text-sm resize-y"
-              />
-            </div>
-          )}
-
-          {/* 词条区（下方）：左词条列表 + 右词条详情 */}
-          <div className="flex-1 flex min-h-0">
-        {/* 词条列表 */}
+        {/* 中：词条列表 */}
         <div className="w-52 shrink-0 border-r border-border flex flex-col">
           <div className="flex-1 overflow-y-auto p-2 space-y-0.5">
             {catEntries.length === 0 && (
@@ -250,7 +230,7 @@ export default function CodexPanel({ project, fixedDomain, embedded }: Props) {
           </div>
         </div>
 
-        {/* 词条详情 */}
+        {/* 右：词条详情 */}
         <div className="flex-1 overflow-y-auto min-w-0">
           {activeEntry && activeCat ? (
             <EntryDetail
@@ -261,13 +241,11 @@ export default function CodexPanel({ project, fixedDomain, embedded }: Props) {
               onChange={(patch) => updateEntry(activeEntry.id!, patch)}
             />
           ) : (
-            <div className="p-6 text-center text-text-muted text-sm">
-              {activeCat ? '从左侧选择或「新建词条」添加一个具体条目（可选）' : '请选择一个分类'}
+            <div className="h-full flex items-center justify-center text-text-muted text-sm">
+              {activeCat ? '从左侧选择或「新建词条」添加一个具体条目' : '请选择一个分类'}
             </div>
           )}
         </div>
-          </div>{/* 词条区 end */}
-        </div>{/* 右侧区域 end */}
       </div>
 
       {/* B1:自定义字段管理弹窗 — 编辑本分类的 fieldSchema(内置类也可改) */}

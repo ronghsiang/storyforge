@@ -58,12 +58,6 @@ export interface CodexCategory {
   builtInKey?: BuiltInCodexKey
   /** 该分类下词条的字段 schema（CodexFieldDef[] 序列化） */
   fieldSchema: string
-  /**
-   * 全貌/概述：该方面的整体描述（如「山川水系」的总体格局）。
-   * 与下属具体词条互补——分类层写全貌，词条层写具体的一个个。
-   * 非索引字段，零 DB 迁移。
-   */
-  overview?: string
   /** 是否隐藏（内置分类不可删，但可隐藏） */
   hidden?: boolean
   order: number

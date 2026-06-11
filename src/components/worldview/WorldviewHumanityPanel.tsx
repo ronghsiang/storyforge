@@ -148,14 +148,7 @@ export default function WorldviewHumanityPanel({ project }: Props) {
         <div className="flex-1 min-w-0 overflow-y-auto p-6">
           {FIELDS.map(f => (
             <div key={f.key} className={activeKey === f.key ? '' : 'hidden'}>
-              {/* B4: 人文主体词条(种族/势力/城池/器物)——结构化登记,可自定义字段、互相关联、进 AI 上下文 */}
-              {f.key === 'races' && (
-                <div className="mb-6">
-                  <h3 className="text-sm font-semibold text-text-primary mb-1">📚 人文主体(词条):种族 / 势力 / 城池重镇 / 人工器物</h3>
-                  <p className="text-xs text-text-muted mb-3">结构化登记人文设定——可自定义专属字段、互相关联，并进入 AI 生成上下文。下方旧版「种族与民族」纯文本兼容保留。</p>
-                  <CodexPanel project={project} fixedDomain="humanity" embedded />
-                </div>
-              )}
+              {/* 全貌（上）：现有字段本身就是这个方面的整体概述，带 AI 生成 */}
               <HumanityFieldEditor
                 meta={f}
                 value={values[f.key] || ''}
@@ -171,6 +164,14 @@ export default function WorldviewHumanityPanel({ project }: Props) {
               {f.key === 'pec' && (
                 <div className="mt-6 max-w-3xl">
                   <CurrencyPanel projectId={project.id!} />
+                </div>
+              )}
+              {/* 词条（下）：在全貌之下细化为一个个具体条目(种族/势力/城池/器物…，可打星) */}
+              {f.key === 'races' && (
+                <div className="mt-6">
+                  <h3 className="text-sm font-semibold text-text-primary mb-1">📚 具体词条 · 细化登记</h3>
+                  <p className="text-xs text-text-muted mb-3">在上面写完整体「全貌」后，这里把人文主体逐条细化：种族 / 势力 / 城池重镇 / 人工器物……可自定义字段、打重要度星级，并进入 AI 生成上下文。</p>
+                  <CodexPanel project={project} fixedDomain="humanity" embedded />
                 </div>
               )}
             </div>

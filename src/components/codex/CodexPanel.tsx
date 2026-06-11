@@ -230,8 +230,21 @@ export default function CodexPanel({ project, fixedDomain, embedded }: Props) {
           </div>
         </div>
 
-        {/* 右：词条详情 */}
+        {/* 右：分类全貌 + 词条详情 */}
         <div className="flex-1 overflow-y-auto min-w-0">
+          {/* 全貌（概述）：分类层的整体描述,与下属具体词条互补 */}
+          {activeCat && (
+            <div className="p-3 border-b border-border">
+              <div className="text-xs text-text-muted mb-1">📋 「{activeCat.name}」全貌 · 整体概述</div>
+              <CTextarea
+                value={activeCat.overview || ''}
+                onChange={(e) => updateCategory(activeCat.id!, { overview: e.target.value })}
+                placeholder={`描述「${activeCat.name}」的整体格局／概况……下面可再逐条添加具体词条`}
+                rows={3}
+                className="w-full px-3 py-2 rounded-lg bg-bg-elevated border border-border text-sm resize-y"
+              />
+            </div>
+          )}
           {activeEntry && activeCat ? (
             <EntryDetail
               key={activeEntry.id}
@@ -241,8 +254,8 @@ export default function CodexPanel({ project, fixedDomain, embedded }: Props) {
               onChange={(patch) => updateEntry(activeEntry.id!, patch)}
             />
           ) : (
-            <div className="h-full flex items-center justify-center text-text-muted text-sm">
-              {activeCat ? '从左侧选择或新建一个词条' : '请选择一个分类'}
+            <div className="p-6 text-center text-text-muted text-sm">
+              {activeCat ? '从左侧选择或「新建词条」添加一个具体条目（可选）' : '请选择一个分类'}
             </div>
           )}
         </div>

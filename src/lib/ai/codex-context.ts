@@ -73,13 +73,16 @@ export async function buildCodexContext(
     // 按重要度降序优先(高星地点等先占预算、截断时先保住),同星级再按 order
     const list = (entriesByCat.get(cat.id!) || [])
       .sort((a, b) => (b.importance ?? 0) - (a.importance ?? 0) || a.order - b.order)
-    if (list.length === 0) continue
+    const overview = (cat.overview || '').trim()
+    // 有全貌或有词条才输出该分类（全貌单独也算有效内容）
+    if (list.length === 0 && !overview) continue
 
     const schema = parseFieldSchema(cat.fieldSchema)
     // 选取适合内联的字段（非 ref，有 label）
     const inlineDefs = schema.filter(d => d.type !== 'ref').slice(0, maxFields)
 
     const lines: string[] = [`[${cat.icon || ''} ${cat.name}]`]
+    if (overview) lines.push(`概述：${overview.slice(0, 300)}`)
     for (const entry of list.slice(0, maxPerCategory)) {
       const fields = parseEntryFields(entry.fields)
       const attrs = inlineDefs

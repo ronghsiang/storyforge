@@ -1,7 +1,21 @@
 import type { LongConsistencyFixture } from './types'
 
-const longLead = (label: string) =>
-  Array.from({ length: 24 }, (_, index) => `${label}旧记录${index + 1}：雨声、石阶与无关的日常细节。`).join('')
+/**
+ * 把"上一章建立的关键事实"放在 previousChapterText 的【最前】，后接足够长的无关收尾，
+ * 使尾部 500 字纯属填充。这样 legacy-500-tail 必然漏掉这些早期事实，
+ * 只有 handoff（从上一章全文抽取）才可能把它们带到下一章 → A/B 才真的有分辨力。
+ *
+ * 反例（旧夹具的错）：事实塞在正文末尾 + 总长不足 500 → legacy 尾巴看了全文，永远拿到答案，
+ * 两个变体得分一样高，测不出 handoff 的价值。
+ */
+const tailFiller = (label: string) =>
+  Array.from(
+    { length: 40 },
+    (_, index) => `${label}的余波${index + 1}：街市收摊、雨水沿瓦沟落下、无关的脚步与寒暄在巷口散开。`,
+  ).join('')
+
+/** 上一章正文 = 开头交代关键事实的一句，+ 长尾填充（保证尾部 500 字不含事实）。 */
+const priorChapter = (factLine: string, label: string) => `${factLine}\n\n${tailFiller(label)}`
 
 export const LONG_CONSISTENCY_FIXTURES: LongConsistencyFixture[] = [
   {
@@ -12,10 +26,13 @@ export const LONG_CONSISTENCY_FIXTURES: LongConsistencyFixture[] = [
     chapterSummary: '林砚依约在雾港交接账册，但不能暴露同伴身份。',
     worldContext: '本世界事实：雾港通行证是青铜铃。未来计划（尚未发生）：林砚会在王城接受银冠加冕。异世界档案：赤沙城以黑曜石哨为通行证。',
     characterContext: '林砚惯用左手，遇险时先保护账册。苏禾的身份必须保密。',
-    previousChapterText: `${longLead('雾港')}最后，林砚把青铜铃藏进左袖，苏禾只说：“三短一长，别叫我的名字。”`,
+    previousChapterText: priorChapter(
+      '林砚把青铜铃藏进左袖，苏禾压低声音定下暗号：三短一长，别叫我的名字。两人约定下一章在雾港交接账册。',
+      '雾港',
+    ),
     existingContent: '',
     selectedText: '',
-    userHint: '写成交接场景；使用三短一长的暗号；不得公开苏禾姓名。',
+    userHint: '写本章雾港交接场景，承接上一章的约定。',
     requiredFacts: [
       { id: 'bronze-bell', aliases: ['青铜铃'] },
       { id: 'left-hand', aliases: ['左手', '左袖'] },
@@ -36,10 +53,13 @@ export const LONG_CONSISTENCY_FIXTURES: LongConsistencyFixture[] = [
     chapterSummary: '顾临拖延追兵，等待钟楼第二次报时后撤离。',
     worldContext: '当前世界的钟楼每夜只响两次。未来计划（尚未发生）：顾临将在北境失去右眼。异世界档案：云陆钟楼会响十三次。',
     characterContext: '顾临右腿旧伤，不能长距离奔跑。',
-    previousChapterText: '',
-    existingContent: `${longLead('钟楼')}第一声钟响落下，顾临扶住右膝，把断掉的钥匙压在掌心。他必须等第二声钟响。`,
+    previousChapterText: priorChapter(
+      '上一章里顾临的右膝旧伤复发，无法奔跑，只能拖着右腿；他攥着一把断掉的钥匙躲进钟楼，准备等钟声脱身。',
+      '钟楼',
+    ),
+    existingContent: '第一声钟响落下，顾临贴着冰冷的砖墙，屏住呼吸。他必须等第二声钟响才能动。',
     selectedText: '',
-    userHint: '续写到第二声钟响后撤离；不要让顾临奔跑。',
+    userHint: '续写到第二声钟响后撤离。',
     requiredFacts: [
       { id: 'right-leg-injury', aliases: ['右腿', '右膝', '旧伤'] },
       { id: 'broken-key', aliases: ['断钥匙', '断掉的钥匙', '断裂的钥匙'] },
@@ -60,10 +80,13 @@ export const LONG_CONSISTENCY_FIXTURES: LongConsistencyFixture[] = [
     chapterSummary: '沈青发现药柜被调包，但暂时不揭穿掌柜。',
     worldContext: '未来计划（尚未发生）：掌柜会在三章后投井。异世界档案：海国的药柜刻着蓝鲸。',
     characterContext: '沈青闻不出气味，只能依赖触觉和颜色。',
-    previousChapterText: '',
+    previousChapterText: priorChapter(
+      '上一章交代：沈青没有嗅觉，只能靠触觉与颜色查验；她在第三格抽屉摸到燕尾缺口，看见药粉由白变灰，已经起疑但决定不揭穿掌柜。',
+      '药铺',
+    ),
     existingContent: '',
-    selectedText: '沈青摸到第三格抽屉的燕尾缺口，看见药粉由白变灰，便把抽屉原样推回。',
-    userHint: '扩写侦查过程；保持沈青没有嗅觉；此刻不要揭穿掌柜。',
+    selectedText: '她俯身凑近药柜，借着窗缝透进的光，重新打量那一排抽屉。',
+    userHint: '扩写沈青继续侦查的过程，承接上一章的发现。',
     requiredFacts: [
       { id: 'dovetail-notch', aliases: ['燕尾缺口', '燕尾形缺口'] },
       { id: 'gray-powder', aliases: ['白变灰', '灰色药粉', '药粉变灰'] },
@@ -84,10 +107,13 @@ export const LONG_CONSISTENCY_FIXTURES: LongConsistencyFixture[] = [
     chapterSummary: '祁照穿过冻河灯阵，把密函交给戴红绳的人。',
     worldContext: '本世界规则：冻河上只能踩熄灭的灯影。未来计划（尚未发生）：祁照将在春祭烧毁密函。异世界档案：盐海灯阵要求踩发亮的灯。',
     characterContext: '祁照左耳失聪；接头人手腕系两圈红绳。',
-    previousChapterText: `${longLead('冻河')}河风卷过最后一盏灯。祁照偏过完好的右耳，记住老人叮嘱：只踩熄灭的灯影，认准两圈红绳。`,
+    previousChapterText: priorChapter(
+      '上一章里老人反复叮嘱祁照：过冻河只能踩熄灭的灯影，接头人手腕系着两圈红绳；祁照左耳失聪，只能偏过完好的右耳记下这些。',
+      '冻河',
+    ),
     existingContent: '',
     selectedText: '',
-    userHint: '完成过河与交接；不能让祁照通过左耳听见声音。',
+    userHint: '完成本章过河与交接，承接上一章老人的叮嘱。',
     requiredFacts: [
       { id: 'dark-lantern', aliases: ['熄灭的灯影', '暗下的灯影', '灭灯的影子'] },
       { id: 'two-red-cords', aliases: ['两圈红绳', '红绳绕了两圈'] },
@@ -108,8 +134,11 @@ export const LONG_CONSISTENCY_FIXTURES: LongConsistencyFixture[] = [
     chapterSummary: '阮秋在契书显字前拖住审判官，不能签名。',
     worldContext: '当前世界事实：月盐水能让无字契显形。未来计划（尚未发生）：阮秋会成为新审判官。异世界档案：铜砂水能让契书显形。',
     characterContext: '阮秋不会写字，以拇指旧烫伤作为身份特征。',
-    previousChapterText: '',
-    existingContent: `${longLead('契书')}审判官把笔推来。阮秋没有接，只用烫伤的拇指压住纸角，等待侍者送来月盐水。`,
+    previousChapterText: priorChapter(
+      '上一章交代：阮秋不会写字，以烫伤的拇指作身份记号；她知道只有月盐水能让这张无字契显形，因此计划拖到侍者送来月盐水。',
+      '公堂',
+    ),
+    existingContent: '审判官把笔推到阮秋面前，目光紧逼。她没有去接，只是垂着眼等待。',
     selectedText: '',
     userHint: '续写到契书显字；阮秋不能签名，也不能突然识字。',
     requiredFacts: [
@@ -132,10 +161,13 @@ export const LONG_CONSISTENCY_FIXTURES: LongConsistencyFixture[] = [
     chapterSummary: '陆垣确认罗盘被人动过手脚，但继续假装不知情。',
     worldContext: '未来计划（尚未发生）：陆垣会在终卷折断罗盘。异世界档案：星舟罗盘使用七根银针。',
     characterContext: '陆垣色盲，分辨标记依靠凹凸纹。',
-    previousChapterText: '',
+    previousChapterText: priorChapter(
+      '上一章交代：陆垣色盲，只能靠凹凸纹辨认；他在罗盘北侧摸到三道凸纹，却发现指针朝南，已经断定罗盘被动过手脚，但决定假装不知情。',
+      '甲板',
+    ),
     existingContent: '',
-    selectedText: '陆垣摸到北侧三道凸纹，指针却朝南。他合上盒盖，向船长点了点头。',
-    userHint: '扩写检查过程；不能用颜色辨认；暂时不要质问船长。',
+    selectedText: '陆垣把罗盘盒重新端在掌心，神色不动地朝船长那边看了一眼。',
+    userHint: '扩写陆垣继续检查、不动声色的过程，承接上一章的发现。',
     requiredFacts: [
       { id: 'three-ridges', aliases: ['三道凸纹', '三条凸纹'] },
       { id: 'points-south', aliases: ['指针朝南', '指向南方', '倒指南方'] },
@@ -156,10 +188,13 @@ export const LONG_CONSISTENCY_FIXTURES: LongConsistencyFixture[] = [
     chapterSummary: '闻舟穿过玻璃果园，把账页交给系三结白绳的哑童。',
     worldContext: '本世界规则：果园通行物是象牙印片。未来计划（尚未发生）：闻舟会在冬至砸碎全部玻璃树。异世界档案：铁林通行物是青铜叶片。',
     characterContext: '闻舟右眼畏光，只能用左眼观察强光处；接头人手腕系三结白绳。',
-    previousChapterText: `${longLead('果园')}闻舟把象牙印片贴在掌心，眯起畏光的右眼。老人叮嘱：认准三结白绳，把账页交出去。`,
+    previousChapterText: priorChapter(
+      '上一章交代：闻舟带着象牙印片进果园，右眼畏光、强光处只能用左眼观察；老人叮嘱他认准手腕系三结白绳的哑童，把账页交出去。',
+      '果园',
+    ),
     existingContent: '',
     selectedText: '',
-    userHint: '完成穿越果园与交付账页；强光下只能用左眼观察。',
+    userHint: '完成穿越果园与交付账页，承接上一章的叮嘱。',
     requiredFacts: [
       { id: 'ivory-seal', aliases: ['象牙印片'] },
       { id: 'three-white-knots', aliases: ['三结白绳'] },
@@ -180,8 +215,11 @@ export const LONG_CONSISTENCY_FIXTURES: LongConsistencyFixture[] = [
     chapterSummary: '岑鹿等第三次潮声后拔出铜钉，打开暗闸，但绝不能点火。',
     worldContext: '当前世界事实：暗闸由铜钉锁住。未来计划（尚未发生）：岑鹿将在海祭成为潮官。异世界档案：风塔暗闸由银楔锁住。',
     characterContext: '岑鹿怕火，暗室中只能靠触摸行动。',
-    previousChapterText: '',
-    existingContent: `${longLead('潮闸')}第二次潮声退去，岑鹿摸到门缝里的铜钉，压住呼吸等待第三次潮声。`,
+    previousChapterText: priorChapter(
+      '上一章交代：暗闸由一根铜钉锁住，岑鹿怕火、暗室里只能靠触摸；第二次潮声退去时她已摸到门缝里的铜钉，计划等第三次潮声再动手。',
+      '潮闸',
+    ),
+    existingContent: '暗室里一片漆黑，岑鹿伏在闸门旁，指尖扣着那处冰凉的金属，压住呼吸。',
     selectedText: '',
     userHint: '续写到第三次潮声后拔钉开闸；不要点火。',
     requiredFacts: [
@@ -204,10 +242,13 @@ export const LONG_CONSISTENCY_FIXTURES: LongConsistencyFixture[] = [
     chapterSummary: '程霁确认蜡面具被替换，保持沉默并把它放回原位。',
     worldContext: '未来计划（尚未发生）：程霁会在终场烧掉面具。异世界档案：雪城面具内侧刻着蓝蛇。',
     characterContext: '程霁不能说话，通过指尖触感辨认物品。',
-    previousChapterText: '',
+    previousChapterText: priorChapter(
+      '上一章交代：程霁不能说话，只能靠指尖触感辨认；他摸到面具左颊的细裂纹，又在内侧碰到未干的蜂蜡，已断定面具被替换，但决定保持沉默放回原位。',
+      '后台',
+    ),
     existingContent: '',
-    selectedText: '程霁摸到面具左颊的细裂纹，又在内侧碰到未干的蜂蜡，便将面具放回木匣。',
-    userHint: '扩写检查过程；程霁不能说话；此刻不要质问守匣人。',
+    selectedText: '程霁把手指停在木匣边沿，没有出声，只是慢慢将盖子合拢。',
+    userHint: '扩写程霁检查并放回的过程，承接上一章的发现；程霁不能说话。',
     requiredFacts: [
       { id: 'cheek-crack', aliases: ['左颊的细裂纹'] },
       { id: 'fresh-wax', aliases: ['未干的蜂蜡'] },
@@ -228,10 +269,13 @@ export const LONG_CONSISTENCY_FIXTURES: LongConsistencyFixture[] = [
     chapterSummary: '姜溯通过纸渡口，把渡券交给系四结蓝线的船童。',
     worldContext: '本世界规则：纸渡口只认灰瓷筹。未来计划（尚未发生）：姜溯会在秋祭烧毁渡券。异世界档案：苇海渡口只认金属鱼鳞。',
     characterContext: '姜溯左腕夹着木板固定，只能用右手递物；船童手腕系四结蓝线。',
-    previousChapterText: `${longLead('纸渡口')}姜溯把灰瓷筹扣在右掌，护住夹板固定的左腕。老人叮嘱：认准四结蓝线，用右手把渡券交出去。`,
+    previousChapterText: priorChapter(
+      '上一章交代：姜溯握着灰瓷筹，左腕夹着木板固定、只能用右手递物；老人叮嘱他认准手腕系四结蓝线的船童，用右手把渡券交出去。',
+      '渡口',
+    ),
     existingContent: '',
     selectedText: '',
-    userHint: '完成过渡与交券；左腕不能用力。',
+    userHint: '完成过渡与交券，承接上一章的叮嘱；左腕不能用力。',
     requiredFacts: [
       { id: 'gray-token', aliases: ['灰瓷筹'] },
       { id: 'four-blue-knots', aliases: ['四结蓝线'] },
@@ -252,8 +296,11 @@ export const LONG_CONSISTENCY_FIXTURES: LongConsistencyFixture[] = [
     chapterSummary: '宋遥等第四声钟鸣后抽出骨销，打开夹层，全程不能出声。',
     worldContext: '当前世界事实：夹层由骨销锁住。未来计划（尚未发生）：宋遥将在岁末接掌钟院。异世界档案：沙钟夹层由琉璃栓锁住。',
     characterContext: '宋遥失声，只能用手势交流。',
-    previousChapterText: '',
-    existingContent: `${longLead('空钟')}第三声钟鸣散去，宋遥摸到夹层边缘的骨销，抬手示意同伴噤声，等待第四声钟鸣。`,
+    previousChapterText: priorChapter(
+      '上一章交代：夹层由一根骨销锁住，宋遥失声、只能用手势交流；第三声钟鸣散去时他已摸到夹层边缘的骨销，计划等第四声钟鸣再抽销。',
+      '钟院',
+    ),
+    existingContent: '钟腹空荡而幽暗，宋遥抬手示意同伴噤声，指尖搭在那截冰凉的销子上。',
     selectedText: '',
     userHint: '续写到第四声钟鸣后抽销开层；宋遥不能说话。',
     requiredFacts: [
@@ -276,10 +323,13 @@ export const LONG_CONSISTENCY_FIXTURES: LongConsistencyFixture[] = [
     chapterSummary: '许澄确认瓷匣被替换，保持平静并原样放回。',
     worldContext: '未来计划（尚未发生）：许澄会在终章砸碎瓷匣。异世界档案：雪原瓷匣内壁画着紫鹿。',
     characterContext: '许澄无法分辨颜色，只能依靠触觉与温度检查器物。',
-    previousChapterText: '',
+    previousChapterText: priorChapter(
+      '上一章交代：许澄无法分辨颜色，只能靠触觉与温度查验；她摸到匣盖边缘的月牙缺口，又触到内壁尚温的树脂，已断定瓷匣被替换，但决定平静地原样放回。',
+      '库房',
+    ),
     existingContent: '',
-    selectedText: '许澄摸到匣盖边缘的月牙缺口，又触到内壁尚温的树脂，便把瓷匣原样放回架上。',
-    userHint: '扩写检查过程；不能用颜色辨认；此刻不要指控管库人。',
+    selectedText: '许澄的指腹停在瓷匣边沿，神色平静，缓缓把它端回架上。',
+    userHint: '扩写许澄检查并放回的过程，承接上一章的发现；不能用颜色辨认。',
     requiredFacts: [
       { id: 'crescent-chip', aliases: ['月牙缺口'] },
       { id: 'warm-resin', aliases: ['尚温的树脂'] },
@@ -300,10 +350,13 @@ export const LONG_CONSISTENCY_FIXTURES: LongConsistencyFixture[] = [
     chapterSummary: '谢芜通过井廊，把药瓶交给戴双层铜环的守井人。',
     worldContext: '本世界规则：井廊通行凭证是黑盐牌。未来计划（尚未发生）：谢芜会在月蚀成为井祭司。异世界档案：云井通行凭证是白羽。',
     characterContext: '谢芜左膝不能弯曲，经过低梁时必须保持站立侧身；守井人戴双层铜环。',
-    previousChapterText: `${longLead('井廊')}谢芜握紧黑盐牌，护住不能弯曲的左膝。向导提醒：认准双层铜环，站立侧身过低梁，再把药瓶交出去。`,
+    previousChapterText: priorChapter(
+      '上一章交代：谢芜握着黑盐牌，左膝不能弯曲、过低梁必须站立侧身；向导提醒她认准戴双层铜环的守井人，再把药瓶交出去。',
+      '井廊',
+    ),
     existingContent: '',
     selectedText: '',
-    userHint: '完成通过井廊与交药；不能跪行。',
+    userHint: '完成通过井廊与交药，承接上一章的提醒；不能跪行。',
     requiredFacts: [
       { id: 'black-salt-pass', aliases: ['黑盐牌'] },
       { id: 'double-copper-ring', aliases: ['双层铜环'] },
@@ -324,10 +377,13 @@ export const LONG_CONSISTENCY_FIXTURES: LongConsistencyFixture[] = [
     chapterSummary: '周弦进入雨档库，把旧地图交给袖口有五针黑线的抄写员。',
     worldContext: '本世界规则：雨档库通行凭证是青玉签。未来计划（尚未发生）：周弦会在霜降烧掉整座档库。异世界档案：沙档库通行凭证是银牌。',
     characterContext: '周弦右耳失聪，只能用左耳辨声；抄写员袖口有五针黑线。',
-    previousChapterText: `${longLead('雨档库')}周弦把青玉签藏进掌心，侧过完好的左耳。馆吏提醒：认准五针黑线，把旧地图交给那名抄写员。`,
+    previousChapterText: priorChapter(
+      '上一章交代：周弦带着青玉签，右耳失聪、只能用左耳辨声；馆吏提醒他认准袖口缝着五针黑线的抄写员，把旧地图交出去。',
+      '雨档库',
+    ),
     existingContent: '',
     selectedText: '',
-    userHint: '完成入库与交图；不能让周弦用右耳听见。',
+    userHint: '完成入库与交图，承接上一章的提醒；不能让周弦用右耳听见。',
     requiredFacts: [
       { id: 'jade-ticket', aliases: ['青玉签', '玉签'] },
       { id: 'five-black-stitches', aliases: ['五针黑线', '黑线缝了五针'] },
@@ -348,8 +404,11 @@ export const LONG_CONSISTENCY_FIXTURES: LongConsistencyFixture[] = [
     chapterSummary: '叶闻等第五滴水落下后拔出铁楔，打开检修门，并始终保持低身。',
     worldContext: '当前世界事实：检修门由铁楔锁住。未来计划（尚未发生）：叶闻会在汛期成为水轮监。异世界档案：风轮检修门由骨栓锁住。',
     characterContext: '叶闻背伤未愈，低矮空间里不能直起身体。',
-    previousChapterText: '',
-    existingContent: `${longLead('水轮')}第四滴水落在铜盘上，叶闻弓着背摸到门边的铁楔，等待第五滴水。`,
+    previousChapterText: priorChapter(
+      '上一章交代：检修门由一根铁楔锁住，叶闻背伤未愈、低矮处不能直身；第四滴水落在铜盘上时他已弓背摸到门边的铁楔，计划等第五滴水再拔楔。',
+      '水轮',
+    ),
+    existingContent: '水轮腹内低矮潮湿，叶闻弓着背贴在门边，盯着铜盘上将落未落的水珠。',
     selectedText: '',
     userHint: '续写到第五滴水后拔楔开门；不能站直。',
     requiredFacts: [
@@ -372,10 +431,13 @@ export const LONG_CONSISTENCY_FIXTURES: LongConsistencyFixture[] = [
     chapterSummary: '陆岚确认铜杯被替换，保持镇定并把杯子放回托盘。',
     worldContext: '未来计划（尚未发生）：陆岚会在终宴摔碎铜杯。异世界档案：冰城铜杯底部刻着白狐。',
     characterContext: '陆岚没有嗅觉，只能依靠触觉与温度辨认器物。',
-    previousChapterText: '',
+    previousChapterText: priorChapter(
+      '上一章交代：陆岚没有嗅觉，只能靠触觉与温度辨认；他摸到杯沿的三角凹痕，又触到杯底凝着冰冷的蜡，已断定铜杯被替换，但决定镇定地放回托盘。',
+      '宴厅',
+    ),
     existingContent: '',
-    selectedText: '陆岚摸到杯沿的三角凹痕，又触到杯底凝着冰冷的蜡，便把铜杯放回托盘。',
-    userHint: '扩写检查过程；不能靠气味；此刻不要质问侍酒人。',
+    selectedText: '陆岚的指尖停在杯沿，神色不变，把铜杯稳稳放回托盘。',
+    userHint: '扩写陆岚检查并放回的过程，承接上一章的发现；不能靠气味。',
     requiredFacts: [
       { id: 'triangle-dent', aliases: ['三角凹痕', '三角形凹痕'] },
       { id: 'cold-wax', aliases: ['冰冷的蜡', '冷蜡', '蜡是冷的'] },
@@ -396,8 +458,11 @@ export const LONG_CONSISTENCY_FIXTURES: LongConsistencyFixture[] = [
     chapterSummary: '莫迟等红旗降下后用左手割断麻绳，放下吊桥，不能纵身跳跃。',
     worldContext: '当前世界事实：吊桥由麻绳牵住。未来计划（尚未发生）：莫迟会在雪夜失去左手。异世界档案：石桥由铁链牵住。',
     characterContext: '莫迟右腕脱臼，只能用左手持刀；左踝受伤，不能跳跃。',
-    previousChapterText: '',
-    existingContent: `${longLead('悬索桥')}红旗仍高挂，莫迟用左手握紧短刀，盯着牵住吊桥的麻绳，等旗子降下。`,
+    previousChapterText: priorChapter(
+      '上一章交代：吊桥由麻绳牵住，莫迟右腕脱臼、只能用左手持刀，左踝受伤、不能跳跃；红旗仍高挂，他盯着旗杆，约定等旗子降下再动手。',
+      '索桥',
+    ),
+    existingContent: '桥台上风声很大，莫迟用左手握紧短刀，眼睛死死盯着对岸的旗杆。',
     selectedText: '',
     userHint: '续写到红旗降下后割绳放桥；不能跳下桥台。',
     requiredFacts: [
@@ -420,10 +485,13 @@ export const LONG_CONSISTENCY_FIXTURES: LongConsistencyFixture[] = [
     chapterSummary: '唐棠穿过镜廊，把账本交给衣领缝六针红线的守镜人。',
     worldContext: '本世界规则：镜廊通行凭证是黑曜珠。未来计划（尚未发生）：唐棠会在夏至砸碎主镜。异世界档案：雾镜城通行凭证是鲸骨扣。',
     characterContext: '唐棠左眼蒙着药布，只能用右眼观察；守镜人衣领缝六针红线。',
-    previousChapterText: `${longLead('镜廊')}唐棠把黑曜珠压在指间，护住蒙着药布的左眼。师父叮嘱：认准六针红线，把账本交给守镜人。`,
+    previousChapterText: priorChapter(
+      '上一章交代：唐棠带着黑曜珠，左眼蒙着药布、只能用右眼观察；师父叮嘱她认准衣领缝着六针红线的守镜人，把账本交出去。',
+      '镜廊',
+    ),
     existingContent: '',
     selectedText: '',
-    userHint: '完成穿廊与交账；不能让左眼看见强光。',
+    userHint: '完成穿廊与交账，承接上一章的叮嘱；不能让左眼看见强光。',
     requiredFacts: [
       { id: 'obsidian-bead', aliases: ['黑曜珠', '黑色曜珠'] },
       { id: 'six-red-stitches', aliases: ['六针红线', '红线缝了六针'] },
@@ -444,8 +512,11 @@ export const LONG_CONSISTENCY_FIXTURES: LongConsistencyFixture[] = [
     chapterSummary: '沈砚等第七次敲击后拨开黄铜闩，进入夹室，但不能点灯。',
     worldContext: '当前世界事实：夹室入口由黄铜闩锁住。未来计划（尚未发生）：沈砚会在冬末成为守墙人。异世界档案：盐墙夹室由珊瑚钥匙开启。',
     characterContext: '沈砚畏火，黑暗中依靠手杖探路。',
-    previousChapterText: '',
-    existingContent: `${longLead('空墙')}第六次敲击停下，沈砚的手杖碰到墙缝里的黄铜闩，他屏息等待第七次。`,
+    previousChapterText: priorChapter(
+      '上一章交代：夹室入口由黄铜闩锁住，沈砚畏火、黑暗中靠手杖探路；第六次敲击停下时他的手杖已碰到墙缝里的黄铜闩，计划等第七次敲击再开闩。',
+      '空墙',
+    ),
+    existingContent: '墙后一片漆黑，沈砚屏住呼吸，手杖头抵着那截冰凉的金属，等着下一声。',
     selectedText: '',
     userHint: '续写到第七次敲击后开闩入室；全程不要点灯。',
     requiredFacts: [
@@ -468,10 +539,13 @@ export const LONG_CONSISTENCY_FIXTURES: LongConsistencyFixture[] = [
     chapterSummary: '闻笙确认纸鸟被替换，保持沉默并把它放回窗台。',
     worldContext: '未来计划（尚未发生）：闻笙会在终夜烧掉所有纸鸟。异世界档案：雪庭纸鸟腹部画着金鱼。',
     characterContext: '闻笙不识字，只能根据纸张触感和墨迹温度辨认。',
-    previousChapterText: '',
+    previousChapterText: priorChapter(
+      '上一章交代：闻笙不识字，只能靠纸张触感与墨迹温度辨认；她摸到纸鸟左翼的撕口，又触到腹部尚温的墨迹，已断定纸鸟被替换，但决定保持沉默放回窗台。',
+      '书阁',
+    ),
     existingContent: '',
-    selectedText: '闻笙摸到纸鸟左翼的撕口，又触到腹部尚温的墨迹，便把纸鸟放回窗台。',
-    userHint: '扩写检查过程；不能突然识字；此刻不要追问送鸟人。',
+    selectedText: '闻笙的指尖停在纸鸟翅膀上，没有出声，慢慢把它搁回窗台。',
+    userHint: '扩写闻笙检查并放回的过程，承接上一章的发现；不能突然识字。',
     requiredFacts: [
       { id: 'torn-left-wing', aliases: ['左翼的撕口', '左翼撕裂', '左边翅膀的裂口'] },
       { id: 'warm-ink', aliases: ['尚温的墨迹', '温热的墨', '墨迹还有温度'] },
@@ -492,8 +566,11 @@ export const LONG_CONSISTENCY_FIXTURES: LongConsistencyFixture[] = [
     chapterSummary: '楚遥等绿灯熄灭后用右手解开苇绳，沿潮阶缓慢下行，不能奔跑。',
     worldContext: '当前世界事实：潮阶入口由苇绳封住。未来计划（尚未发生）：楚遥会在大潮失去右腿。异世界档案：云阶入口由赤铜索封住。',
     characterContext: '楚遥左手掌受伤，只能用右手解绳；右膝旧伤，不能奔跑。',
-    previousChapterText: '',
-    existingContent: `${longLead('潮阶')}绿灯仍亮着，楚遥护住受伤的左掌，用右手搭在苇绳结上，等灯熄灭。`,
+    previousChapterText: priorChapter(
+      '上一章交代：潮阶入口由苇绳封住，楚遥左掌受伤、只能用右手解绳，右膝旧伤、不能奔跑；绿灯仍亮，他守在阶前，约定等灯熄灭再解绳下阶。',
+      '潮阶',
+    ),
+    existingContent: '潮阶口湿冷，楚遥护着受伤的左掌，右手搭在绳结上，盯着那盏还亮着的灯。',
     selectedText: '',
     userHint: '续写到绿灯熄灭后解绳下阶；必须慢行。',
     requiredFacts: [

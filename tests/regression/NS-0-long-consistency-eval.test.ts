@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { getFixtures } from '../../src/lib/evals/long-consistency/fixtures'
+import { getFixtures, LONG_CONSISTENCY_FIXTURES } from '../../src/lib/evals/long-consistency/fixtures'
 import {
   NS0_FIXED_MAX_TOKENS,
   NS1_ACCEPTANCE_THRESHOLDS,
@@ -90,6 +90,30 @@ describe('NS-0 long-consistency evaluation harness', () => {
     const withHandoffText = withHandoff.messages.map(message => message.content).join('\n')
     expect(withHandoffText).toContain('结尾地点：雾港码头')
     expect(withHandoffText).toContain('本章林砚与苏禾约定暗号')
+  })
+
+  it('fixtures are discriminating: legacy-visible text misses facts that only the full prior chapter carries', () => {
+    // 尺子的硬性质：legacy（500 字尾巴 / existingContent）必须【漏掉】requiredFacts，
+    // 而 handoff 的抽取源（previousChapterText 全文）必须【含有】它们。
+    // 否则两个变体得分一样高，A/B 测不出 handoff 的价值（旧夹具就栽在这）。
+    for (const fixture of LONG_CONSISTENCY_FIXTURES) {
+      if (fixture.task === 'expansion') continue // expansion 的 handoff 收益边际，不做严格守卫
+      const fullSource = fixture.previousChapterText
+      const legacyVisible = fixture.task === 'completion'
+        ? fixture.previousChapterText.slice(-500)
+        : fixture.existingContent
+
+      for (const fact of fixture.requiredFacts) {
+        expect(
+          fact.aliases.some(alias => fullSource.includes(alias)),
+          `${fixture.id} 全文应含事实 ${fact.id}`,
+        ).toBe(true)
+        expect(
+          fact.aliases.some(alias => legacyVisible.includes(alias)),
+          `${fixture.id} legacy 可见部分不应含事实 ${fact.id}（否则无分辨力）`,
+        ).toBe(false)
+      }
+    }
   })
 
   it('scores deterministic facts, constraints, future leakage, foreign-world leakage and evidence', () => {

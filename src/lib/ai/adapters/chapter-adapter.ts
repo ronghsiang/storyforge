@@ -59,7 +59,8 @@ function buildContinuityEnvelope(args: {
     parts.push(`【当前世界最近 verified summaries】\n${trimPart(args.continuity.recentSummaries, summaryChars)}`)
   }
   parts.push(
-    '篇幅纪律：优先在输出前 60% 完成本章任务终点与全部硬约束，再补充氛围和细节；不得在关键动作完成前耗尽篇幅。',
+    '硬约束执行协议：先在内部逐项核对保护块中的事实、动作、禁令与人物限制；必须在正文前 40% 用明确可观察的行动逐项落实，不得只暗示、遗漏或改成相反行为。',
+    '篇幅纪律：优先完成本章任务终点与全部硬约束，再补充氛围和细节；不得在关键动作完成前耗尽篇幅。',
     '以上内容是最低连续性约束；不得用未来章或其他世界资料覆盖。',
     CONTINUITY_CORE_END,
   )

@@ -74,9 +74,9 @@ export default function NS0EvalPanel() {
   const run = async () => {
     setRunning(true)
     setError('')
-    setProgress('0/6')
     try {
       const fixtures = getFixtures('development')
+      setProgress(`0/${fixtures.length}`)
       const next = await runEvalInBrowser({
         fixtures,
         split: 'development',
@@ -133,7 +133,7 @@ export default function NS0EvalPanel() {
     <div data-testid="ns0-eval-panel" className="max-w-2xl mt-6 p-4 bg-bg-surface border border-border rounded-xl">
       <h3 className="text-sm font-semibold text-text-primary">NS-0 长期一致性基线（仅开发环境）</h3>
       <p className="mt-1 text-xs text-text-muted">
-        普通按钮运行 6 个 development 样例；NS-1 最终按钮运行 3 个冻结 held-out。最终盲测只展示 aggregate，不展开逐例输出。
+        普通按钮运行 development 样例；NS-1 最终按钮运行冻结 held-out。最终盲测只展示 aggregate，不展开逐例输出。
       </p>
       <div className="mt-3 flex items-center gap-3">
         <button

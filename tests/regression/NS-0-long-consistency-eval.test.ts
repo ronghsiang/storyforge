@@ -19,11 +19,15 @@ describe('NS-0 long-consistency evaluation harness', () => {
       'held-completion-lantern',
       'held-continuation-ink',
       'held-expansion-compass',
-    ])
-    expect(getFixtures('held-out').map(fixture => fixture.id)).toEqual([
       'held-final-completion-seal',
       'held-final-continuation-tidelock',
       'held-final-expansion-mask',
+    ])
+    expect(getFixtures('held-out').map(fixture => fixture.id)).toEqual([
+      'held-v3-completion-ferry',
+      'held-v3-continuation-fourth-chime',
+      'held-v3-expansion-porcelain',
+      'held-v3-completion-salt-pass',
     ])
   })
 

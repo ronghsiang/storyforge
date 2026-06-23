@@ -2137,6 +2137,16 @@ NS-2 + NS-4 + NS-5 → NS-6
 - Agnes `agnes-1.5-flash` 预设连接成功，可用于后续 T0c 真实 baseline；密钥不进入仓库和测试输出；
 - 当前工作区原有 `public/icon-hd-*` 未跟踪文件未触碰、未纳入本阶段。
 
+#### ✅ NS-0 · 效果基线与评测基础完成（2026-06-23 · 待 Claude 审查）
+
+- 新增 3 个 development + 3 个 held-out 冻结合成夹具，覆盖 completion / continuation / expansion、未来信息、错误世界、跨章事实与交接约束；
+- runner 直接调用当前 `chapter.content` / `chapter.continue` / `chapter.expand` 生产 builder；completion 锁定真实 `slice(-500)` 行为，并将最终 messages、builder 快照、输出、评分与 API usage 保存在浏览器本地记录；
+- 已实现 `legacy-500-tail` / `tail-summary` / `handoff-tail-summary` 配对变体，自动评分事实召回、约束召回、未来泄漏、错误世界泄漏与证据引用；真实 API 输出不进 Git；
+- NS-1 阈值已在真实跑分前冻结：未来泄漏 `0`、错误世界泄漏 `0`、事实召回 `≥85%`、约束召回 `≥85%`、证据引用召回 `≥90%`、输入 token 不高于 legacy `1.6×`，且事实召回至少提升 `10` 个百分点；
+- 正式 held-out 基线（Agnes `agnes-1.5-flash`，temperature `0.2`，每例 maxTokens `1200`）：事实召回 `33.3%`、约束召回 `50.0%`、未来泄漏 `0%`、错误世界泄漏 `33.3%`，真实 API usage 合计输入 `2269` / 输出 `2103` tokens；
+- 确定性验证：`npx tsc --noEmit` 通过；NS-0 专项 `6/6` 通过（含固定预算 / 自然成本成对执行契约）；密钥、真实 messages 与输出均未写入仓库；
+- 基线明确证明旧方案不足：仅靠尾部/局部文本无法稳定携带跨章事实和世界边界。下一施工阶段进入 NS-1，不调整已冻结 held-out 标签与硬门。
+
 ---
 
 ## 〆 终

@@ -16,6 +16,11 @@ export interface StreamResult {
   usage?: TokenUsage
 }
 
+/** 可变容器，chat 写入非流式调用返回的真实 token 用量。 */
+export interface ChatResult {
+  usage?: TokenUsage
+}
+
 /**
  * 根据 provider 构造请求 URL 和 headers
  */
@@ -197,6 +202,7 @@ export async function chat(
   config: AIConfig,
   meta?: AICallMeta,
   signal?: AbortSignal,
+  result?: ChatResult,
 ): Promise<string> {
   const trimmed = trimMessagesToFit(messages, config.provider, config.model, config.maxTokens, config.contextWindow)
   if (trimmed.trimmed) {
@@ -218,13 +224,19 @@ export async function chat(
 
   const json = await response.json()
   if (json.usage) {
+    const usage = {
+      inputTokens: json.usage.prompt_tokens ?? 0,
+      outputTokens: json.usage.completion_tokens ?? 0,
+      totalTokens: json.usage.total_tokens ?? 0,
+    }
+    if (result) result.usage = usage
     void recordUsage({
       projectId: meta?.projectId ?? null,
       timestamp: Date.now(),
       category: meta?.category ?? '',
       model: config.model,
-      inputTokens: json.usage.prompt_tokens ?? 0,
-      outputTokens: json.usage.completion_tokens ?? 0,
+      inputTokens: usage.inputTokens,
+      outputTokens: usage.outputTokens,
     })
   }
   return json.choices?.[0]?.message?.content || ''

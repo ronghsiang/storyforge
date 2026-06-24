@@ -42,7 +42,8 @@ async function evalChatWithRetry(
   let lastError: unknown
   for (let attempt = 0; attempt < 3; attempt++) {
     const controller = new AbortController()
-    const timeout = setTimeout(() => controller.abort(), 45_000)
+    // agnes 免费版单次生成常 >45s；评测是离线跑分、不需要快，放宽到 180s 避免被超时掐断整轮 A/B。
+    const timeout = setTimeout(() => controller.abort(), 180_000)
     try {
       const result: import('../../lib/ai/client').ChatResult = {}
       const output = await chat(

@@ -11,9 +11,13 @@ import { ensureChunkEmbeddings } from '../../lib/retrieval/retrieval'
 import { isEmbeddingReady } from '../../lib/ai/adapters/embedding-adapter'
 import type { EmbeddingConfig } from '../../lib/types'
 
+// baseUrl 默认走本地代理路径（绕浏览器 CORS，本地运行工具时生效；线上部署需改直连且服务商允许跨域）。
 const PRESETS: Array<{ label: string; note: string; cfg: Partial<EmbeddingConfig> }> = [
-  { label: '本地 Ollama · bge-m3', note: '免费 · 离线 · 手稿不出本机(推荐)', cfg: { provider: 'ollama', baseUrl: 'http://localhost:11434/v1', model: 'bge-m3', apiKey: '' } },
-  { label: 'OpenAI · 3-small', note: '便宜强 · 1536维 · 正文会发往 OpenAI', cfg: { provider: 'openai', baseUrl: 'https://api.openai.com/v1', model: 'text-embedding-3-small' } },
+  { label: '硅基流动 · bge-m3', note: '无需显卡 · 国内可用 · 有免费额度(推荐)', cfg: { provider: 'custom', baseUrl: '/siliconflow-proxy/v1', model: 'BAAI/bge-m3' } },
+  { label: '通义 · v3', note: '阿里大厂 · 便宜稳 · 中文强', cfg: { provider: 'qwen', baseUrl: '/qwen-proxy/compatible-mode/v1', model: 'text-embedding-v3' } },
+  { label: '智谱 · embedding-3', note: '国内大厂 · OpenAI 兼容', cfg: { provider: 'glm', baseUrl: '/glm-proxy/api/paas/v4', model: 'embedding-3' } },
+  { label: '本地 Ollama · bge-m3', note: '免费离线 · 手稿不出本机 · 需显卡', cfg: { provider: 'ollama', baseUrl: 'http://localhost:11434/v1', model: 'bge-m3', apiKey: '' } },
+  { label: 'OpenAI · 3-small', note: '需外网 · 1536维', cfg: { provider: 'openai', baseUrl: 'https://api.openai.com/v1', model: 'text-embedding-3-small' } },
 ]
 
 export default function EmbeddingConfigCard() {
@@ -67,6 +71,9 @@ export default function EmbeddingConfigCard() {
               </button>
             ))}
           </div>
+          <p className="text-[11px] text-text-muted">
+            国内预设默认走<strong>本地代理</strong>(本地运行工具时自动绕过浏览器 CORS);线上部署版请把 Base URL 改成服务商直连地址。没显卡选<strong>硅基流动/通义/智谱</strong>即可,云端算力、填 key 就能用。
+          </p>
           <div className="grid grid-cols-2 gap-3">
             <div>
               <label className="block text-xs text-text-secondary mb-1">Base URL</label>

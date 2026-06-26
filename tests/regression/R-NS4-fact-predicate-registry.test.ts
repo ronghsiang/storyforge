@@ -16,7 +16,7 @@ import {
 describe('NS-4 · FACT_PREDICATE_REGISTRY', () => {
   it('预登记了 §14.2 要求的最小谓词集', () => {
     const keys = FACT_PREDICATE_REGISTRY.map(p => p.key)
-    for (const k of ['location', 'aliveStatus', 'healthStatus', 'powerStage', 'goal', 'owns', 'knows', 'relation']) {
+    for (const k of ['location', 'aliveStatus', 'healthStatus', 'powerStage', 'goal', 'owns', 'knows', 'relation', 'legacyState']) {
       expect(keys, `应登记谓词 ${k}`).toContain(k)
     }
   })
@@ -40,5 +40,6 @@ describe('NS-4 · FACT_PREDICATE_REGISTRY', () => {
     expect(getFactPredicate('relation')?.objectEntityTypes).toContain('character')
     expect(getFactPredicate('owns')?.objectEntityTypes).toContain('codexEntry')
     expect(getFactPredicate('knows')?.factKind).toBe('event') // event 只增不改
+    expect(getFactPredicate('legacyState')).toMatchObject({ cardinality: 'multi', conflictPolicy: 'manual' }) // 旧状态卡零丢失候选
   })
 })

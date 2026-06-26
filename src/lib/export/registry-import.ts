@@ -13,6 +13,7 @@ import { PROJECT_TABLES } from '../registry/project-tables'
 import { remapWorldPortalTargets } from '../utils/world-portals'
 import { transactionTablesFor } from '../registry/lifecycle'
 import { importLegacyArraysToCodex } from '../migrations/legacy-to-codex-upgrade'
+import { migrateStateCardsToTemporalFactCandidates } from '../migrations/state-cards-to-temporal-facts'
 import type { TableSpec } from '../registry/types'
 import type { ProjectExportData } from './json-export'
 import { normalizeCharacterAxes } from '../character/character-axes'
@@ -176,6 +177,13 @@ export async function deriveImportProjectJSON(data: ProjectExportData): Promise<
       }
 
       newIdMaps.set(spec.name, newIdMap)
+    }
+
+    // NS-4：旧备份可能只有 stateCards、没有 temporalFacts。导入后用新项目内的
+    // 新 stateCard 主键生成可审候选；旧卡保留，不自动升 Canon。函数幂等，若备份已有
+    // 对应候选不会重复写。
+    if (((data as any).temporalFacts?.length ?? 0) === 0) {
+      await migrateStateCardsToTemporalFactCandidates(db, newProjectId)
     }
 
     return newProjectId

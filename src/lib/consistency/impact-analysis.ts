@@ -3,7 +3,7 @@
  *
  * 设计 §22.8 NS-6 / §26.4：改某章正文后——
  * - 该章派生记忆失效：handoff/摘要由 hash 自动 stale（NS-1）、检索块由 hash 重建（NS-5）；
- *   事实账本里【源自该章】且证据引文已不在新正文的【已确认】事实 → 降级为候选/待复核（§14.6），
+ *   事实账本里【源自该章】且证据引文已不在新正文的【已确认】事实 → 标记 stale/待复核（§16.7），
  *   绝不自动删事实、绝不动 locked。
  * - 影响分析：列出"引用了该章事实/紧随其后的"后续章节，交作者复核——只提示、不自动改正文。
  */
@@ -13,7 +13,7 @@ import { normalizeChapterText } from '../ai/chapter-memory/text-normalization'
 import { resolveCanonicalChapterSequence } from '../ai/chapter-memory/canonical-chapter-sequence'
 
 /**
- * 正文改动后传播 stale：源自该章、证据已失效的【已确认】事实降级为候选（待作者重新确认）。
+ * 正文改动后传播 stale：源自该章、证据已失效的【已确认】事实标记 stale（待作者重新确认）。
  * 不删事实、不动 locked、不碰候选/已否决。
  */
 export async function propagateChapterEditStale(projectId: number, chapterId: number): Promise<{ demotedFacts: number }> {
@@ -25,9 +25,9 @@ export async function propagateChapterEditStale(projectId: number, chapterId: nu
     .toArray()
   let demoted = 0
   for (const f of facts) {
-    // 证据引文已不在新正文 → 该确认事实失去依据，降级候选待复核
+    // 证据引文已不在新正文 → 该确认事实失去依据，标记 stale 待复核
     if (f.sourceQuote && !content.includes(f.sourceQuote) && f.id != null) {
-      await db.temporalFacts.update(f.id, { status: 'candidate', updatedAt: Date.now() })
+      await db.temporalFacts.update(f.id, { status: 'stale', updatedAt: Date.now() })
       demoted++
     }
   }

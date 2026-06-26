@@ -1,5 +1,14 @@
 # Changelog
 
+## Unreleased — 2026-06-25 · Codex 审查补强：NS-4/NS-5 数据红线
+
+- NS-4 旧 `stateCards` 零丢失桥接：DB v35 升级与旧备份导入会把五类状态卡生成为 `temporalFacts` 候选（`candidate/import`），旧状态卡原样保留，不自动升 Canon；已补真实 Dexie 升级夹具与导出/导入回归。
+- NS-4/NS-6 事实账本生命周期：删除角色标记 `source-missing`；删除章节清 source/valid chapter FK 并标记 `source-missing` / `invalid-range`；历史正文证据失效标记 `stale`。异常事实不会进入生成上下文，事实库新增“异常待复核”入口，可由作者重新确认或否决。
+- NS-4 人类可读 IO：事实库可导出事实账本 + 层级叙事摘要 Markdown；外部编辑导回只接受 JSON 候选 diff，且永远写成 `candidate/import`，未知谓词、跨项目章节引用和重复项会被跳过。
+- NS-5 老书索引入口：设置页“建立检索索引”现在先为历史章节重建 `retrievalChunks` 和 `narrativeSummaryNodes`（章→卷→全书派生摘要树），再按配置可选补 embedding；未启用 embedding 时仍可使用层级摘要 + 关键词召回。删除/修改章节会清理或标记派生记忆 stale。
+- NS-5 未来泄漏防线：生成上下文不直接注入预计算“全书摘要”，而是按规范章序只用当前章之前的 verified 章节点现场 roll-up 成“截至本章”的全书/本卷摘要。
+- 文档状态改为保守口径：本轮补齐此前 Codex 自审列出的层级摘要、异常审核和 human-readable IO 缺口；仍需 Claude 最终审查后才能合并 main。
+
 ## Unreleased — 2026-06-25 · NS-5 叙事感知混合检索（关键词 + embedding 语义通道）
 
 - 检索块地基 `retrievalChunks`（DB v36，`exportable:false` 可重建缓存，不进备份）：章节正文切块、抽实体关键词、按正文 hash 失效重建；导入后由正文一键重建，避免大体积向量进 JSON。

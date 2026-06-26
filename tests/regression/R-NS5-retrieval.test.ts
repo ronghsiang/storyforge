@@ -4,7 +4,16 @@
  */
 import { describe, it, expect, beforeEach, afterEach } from 'vitest'
 import { db } from '../../src/lib/db/schema'
-import { splitIntoChunks, extractKeywords, rebuildChapterChunks, retrieveChunks } from '../../src/lib/retrieval/retrieval'
+import {
+  splitIntoChunks,
+  extractKeywords,
+  rebuildChapterChunks,
+  rebuildProjectRetrievalChunks,
+  rebuildProjectNarrativeSummaries,
+  readNarrativeSummaryContext,
+  retrieveChunks,
+} from '../../src/lib/retrieval/retrieval'
+import { useChapterStore } from '../../src/stores/chapter'
 
 const now = Date.now()
 async function seedChapters(texts: string[]) {
@@ -58,6 +67,65 @@ describe('NS-5 · retrieval', () => {
     expect(sources).toContain(chaps[0])
     expect(sources).toContain(chaps[1])
     expect(sources).not.toContain(chaps[2]) // 当前/未来章不召回
+  })
+
+  it('老项目一键重建：没有 retrievalChunks 时先为历史章节切块，再可召回', async () => {
+    const { pid, chaps } = await seedChapters([
+      '第一章：林飞把青铜铃交给苏禾保管。',
+      '第二章：当前要写苏禾归还铃铛。',
+    ])
+    await db.characters.add({ projectId: pid, name: '苏禾', role: 'supporting', createdAt: now, updatedAt: now } as any)
+    const categoryId = await db.codexCategories.add({ projectId: pid, name: '器物', order: 0, createdAt: now, updatedAt: now } as any) as number
+    await db.codexEntries.add({ projectId: pid, categoryId, name: '青铜铃', order: 0, createdAt: now, updatedAt: now } as any)
+
+    expect(await db.retrievalChunks.where('projectId').equals(pid).count()).toBe(0)
+    const built = await rebuildProjectRetrievalChunks({ projectId: pid })
+    expect(built.chapters).toBe(2)
+    expect(built.chunks).toBeGreaterThan(0)
+    const got = await retrieveChunks({ projectId: pid, currentChapterId: chaps[1], queryTerms: ['苏禾', '青铜铃'] })
+    expect(got.map(r => r.chunk.sourceChapterId)).toContain(chaps[0])
+    expect(got.map(r => r.chunk.text).join('\n')).toContain('青铜铃')
+  })
+
+  it('层级摘要树：重建章→卷→全书，并按当前章只注入 verified 前文', async () => {
+    const { pid, chaps } = await seedChapters([
+      '第一章：林飞把青铜铃交给苏禾保管。',
+      '第二章：苏禾带着青铜铃进入北境。',
+      '第三章：当前章。',
+    ])
+
+    const built = await rebuildProjectNarrativeSummaries({ projectId: pid })
+    expect(built.chapterNodes).toBe(3)
+    expect(built.volumeNodes).toBe(1)
+    expect(built.bookNodes).toBe(1)
+
+    const nodes = await db.narrativeSummaryNodes.where('projectId').equals(pid).toArray()
+    expect(nodes.some(node => node.level === 'book' && node.summary.includes('青铜铃'))).toBe(true)
+
+    const ctx = await readNarrativeSummaryContext({ projectId: pid, currentChapterId: chaps[2] })
+    expect(ctx).toContain('全书')
+    expect(ctx).toContain('本卷')
+    expect(ctx).toContain('青铜铃')
+    expect(ctx).not.toContain('第三章：当前章') // 当前/未来章正文不注入
+  })
+
+  it('层级摘要 stale 防线：正文修改后旧摘要节点不再注入', async () => {
+    const { pid, chaps } = await seedChapters([
+      '第一章：林飞把青铜铃交给苏禾保管。',
+      '第二章：当前章。',
+    ])
+    await useChapterStore.getState().loadAll(pid)
+    await rebuildProjectNarrativeSummaries({ projectId: pid })
+
+    await useChapterStore.getState().updateChapter(chaps[0], {
+      content: '第一章：旧物已删除。',
+      wordCount: 8,
+    })
+
+    const stale = await db.narrativeSummaryNodes.where('projectId').equals(pid).filter(node => node.status === 'stale').toArray()
+    expect(stale.length).toBeGreaterThan(0)
+    const ctx = await readNarrativeSummaryContext({ projectId: pid, currentChapterId: chaps[1] })
+    expect(ctx).not.toContain('青铜铃')
   })
 
   it('世界隔离：别的世界的块不召回', async () => {

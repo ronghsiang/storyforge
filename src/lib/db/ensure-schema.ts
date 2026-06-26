@@ -22,6 +22,7 @@ export const REQUIRED_TABLES = [
   'importantLocations',
   'itemLedger',
   'notes',
+  'narrativeSummaryNodes',
   'outlineNodes',
   'powerSystems',
   'projects',

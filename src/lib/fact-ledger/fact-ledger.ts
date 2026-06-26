@@ -6,7 +6,7 @@
  * - 谓词受 FACT_PREDICATE_REGISTRY 控制；
  * - 主体名 → 分类型 FK（characterId）在此解析（有主表才建 FK，否则只留 subjectName）；
  * - 去重：同主体+谓词+值的【未关闭候选】不重复写；
- * - ★不在此自动 supersede 旧权威事实——supersede 只发生在【作者确认候选】时（confirmFactCandidate），
+ * - ★不在此自动 supersede 旧权威事实——supersede 只发生在【作者确认候选/异常复核】时（confirmFactCandidate），
  *   候选(observation)不改 canon（§14.6「无证据 observation 不得自动升级为 Canon」）。
  */
 import { db } from '../db/schema'
@@ -85,12 +85,13 @@ export async function adoptFactCandidates(args: {
 }
 
 /**
- * 作者确认候选 → 升为 Canon（confirmed）。§14.4：state 单值谓词在此【关闭被它取代的旧有效事实】，
+ * 作者确认候选/异常事实 → 升为 Canon（confirmed）。§14.4：state 单值谓词在此【关闭被它取代的旧有效事实】，
  * 不按字符串相似度自动覆盖、不动 locked、event 不可被 supersede。
  */
 export async function confirmFactCandidate(factId: number): Promise<void> {
   const fact = await db.temporalFacts.get(factId)
-  if (!fact || fact.status !== 'candidate' || fact.id == null) return
+  if (!fact || fact.id == null) return
+  if (!['candidate', 'stale', 'source-missing', 'invalid-range'].includes(fact.status)) return
   const spec = getFactPredicate(fact.predicate)
 
   // 单值 state 谓词：关闭同主体+谓词、当前仍有效、非锁定的旧事实（明确取代）。
@@ -119,10 +120,10 @@ export async function confirmFactCandidate(factId: number): Promise<void> {
   await db.temporalFacts.update(fact.id, { status: 'confirmed', supersedesFactId: fact.supersedesFactId ?? null, updatedAt: now() })
 }
 
-/** 作者否决候选（不入 Canon、不再注入生成）。仅对候选生效，不动已确认/已锁定事实。 */
+/** 作者否决候选/异常事实（不入 Canon、不再注入生成）。不动已确认/已锁定事实。 */
 export async function rejectFactCandidate(factId: number): Promise<void> {
   const fact = await db.temporalFacts.get(factId)
-  if (!fact || fact.id == null || fact.status !== 'candidate') return
+  if (!fact || fact.id == null || fact.status === 'confirmed' || fact.locked) return
   await db.temporalFacts.update(fact.id, { status: 'rejected', updatedAt: now() })
 }
 

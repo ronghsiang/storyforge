@@ -11,6 +11,7 @@ import {
   rejectFactCandidate,
   listFacts,
 } from '../lib/fact-ledger/fact-ledger'
+import { importFactCandidateDiff, type ImportFactCandidateDiffResult } from '../lib/fact-ledger/human-readable-io'
 
 interface FactLedgerStore {
   facts: TemporalFact[]
@@ -19,6 +20,7 @@ interface FactLedgerStore {
   adopt: (args: { projectId: number; sourceChapterId: number; worldGroupId?: number | null; candidates: ExtractedFactCandidate[] }) => Promise<number>
   confirmFact: (projectId: number, factId: number) => Promise<void>
   rejectFact: (projectId: number, factId: number) => Promise<void>
+  importCandidateDiff: (projectId: number, raw: unknown) => Promise<ImportFactCandidateDiffResult>
 }
 
 export const useFactLedgerStore = create<FactLedgerStore>((set, get) => ({
@@ -48,5 +50,11 @@ export const useFactLedgerStore = create<FactLedgerStore>((set, get) => ({
   rejectFact: async (projectId, factId) => {
     await rejectFactCandidate(factId)
     await get().load(projectId)
+  },
+
+  importCandidateDiff: async (projectId, raw) => {
+    const result = await importFactCandidateDiff(projectId, raw)
+    await get().load(projectId)
+    return result
   },
 }))

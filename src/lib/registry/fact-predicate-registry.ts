@@ -103,6 +103,17 @@ export const FACT_PREDICATE_REGISTRY: readonly FactPredicateSpec[] = Object.free
     conflictPolicy: 'manual',
     objectEntityTypes: ['character'],
   },
+  {
+    key: 'legacyState',
+    label: '旧状态卡字段',
+    subjectTypes: ['character', 'location', 'storyArc', 'worldGroup', 'codexEntry'],
+    factKind: 'state',
+    valueType: 'json',
+    cardinality: 'multi',
+    temporal: true,
+    aliases: ['旧状态', '状态卡字段'],
+    conflictPolicy: 'manual',
+  },
 ])
 
 const BY_KEY = new Map(FACT_PREDICATE_REGISTRY.map(p => [p.key, p]))

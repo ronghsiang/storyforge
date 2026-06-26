@@ -6,7 +6,7 @@
 import { db } from '../db/schema'
 import { resolveCanonicalChapterSequence } from '../ai/chapter-memory/canonical-chapter-sequence'
 import { getFactPredicate } from './fact-predicate-registry'
-import { retrieveChunks, embedQuery } from '../retrieval/retrieval'
+import { retrieveChunks, embedQuery, readNarrativeSummaryContext } from '../retrieval/retrieval'
 import { isEmbeddingReady, embeddingModelTag } from '../ai/adapters/embedding-adapter'
 import { useAIConfigStore } from '../../stores/ai-config'
 import {
@@ -266,7 +266,9 @@ async function readRetrievedPassages(projectId: number, chapterId?: number | nul
   const summary = node?.summary || ''
   const mentioned = charNames.filter(n => summary.includes(n))
   const queryTerms = mentioned.length ? mentioned : charNames // 摘要没提具体角色 → 用全部角色作宽召回
-  if (!queryTerms.length) return ''
+  if (!queryTerms.length) {
+    return await readNarrativeSummaryContext({ projectId, currentChapterId: chapterId, worldGroupId })
+  }
 
   // NS-5：若启用 embedding，按"章纲摘要 + 涉及角色"嵌一次查询向量 → 混合检索（失败自动退回关键词）
   const embCfg = useAIConfigStore.getState().embedding
@@ -278,11 +280,12 @@ async function readRetrievedPassages(projectId: number, chapterId?: number | nul
     projectId, currentChapterId: chapterId, worldGroupId, queryTerms, queryEmbedding,
     queryEmbeddingModel: queryEmbedding ? embeddingModelTag(embCfg) : null, topK: 6,
   })
-  if (!got.length) return ''
+  const hierarchy = await readNarrativeSummaryContext({ projectId, currentChapterId: chapterId, worldGroupId })
+  if (!got.length) return hierarchy
   const chapters = await db.chapters.where('projectId').equals(projectId).toArray()
   const titleOf = new Map(chapters.filter(c => c.id != null).map(c => [c.id!, c.title]))
   const lines = got.map(r => `〖${titleOf.get(r.chunk.sourceChapterId) ?? '前文'}〗${r.chunk.text}`)
-  return ['【相关前文召回（防止远距离细节/伏笔矛盾，仅供参考）】', ...lines].join('\n')
+  return [hierarchy, '【相关前文召回（防止远距离细节/伏笔矛盾，仅供参考）】', ...lines].filter(Boolean).join('\n\n')
 }
 
 export const CONTEXT_SOURCES: ContextSource[] = [

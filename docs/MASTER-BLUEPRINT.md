@@ -2230,6 +2230,70 @@ NS-2 + NS-4 + NS-5 → NS-6
 - Fast Guard / Deep Audit 均只读并仅缓存于会话，不自动修改任何数据；旧“按审校报告修改”仍只服务原编辑审校，不会把一致性发现自动改稿；
 - 初始 benchmark 覆盖有效 hard、伪造正文引文、伪造证据、无证据 hard 降级和完整长正文不截断。真实 Agnes Fast Guard 在第 1 章只报告 1 条可解释 risk + 1 条 unknown，均展示可回查证据，未误报 hard。
 
+#### 🧪 Codex 审查记录 · Claude NS-4/NS-5/NS-6 分支（2026-06-25）
+
+审查对象：分支 `refactor/phase-ns-task-0`，最新 commit `da2fd9c`。本次审查以北极星“数百万字长篇小说长期上下文一致性当前可达最佳效果”和 §16.5～§16.8 红线为准。
+
+已复核通过：
+
+- 本地守卫通过：`npx tsc --noEmit`、`npm run check:architecture`、`npm run check:required-tables`（41 tables）、`npm run check:ai-manual`、`npm run test`（77 files / 292 tests）、`npm run build`；
+- NS-4 主链路已具备可用闭环：`temporalFacts` 表、受控谓词注册表、正文引文回查、候选写入、作者确认/否决、`currentFacts` 注入生成、导出/导入 remap 专项测试；
+- NS-5 主链路已具备可用闭环：`retrievalChunks` 可重建缓存、关键词召回、可选 embedding 混合打分、未来章硬过滤、世界隔离、跨模型向量隔离、失败退回关键词；
+- NS-6 主链路已具备可用闭环：一致性审计读取 `currentFacts` + `retrievedPassages`，历史正文修改可降级证据失效的 confirmed fact，并列后续章节供作者复核；
+- embedding 默认关闭且标为 Labs，符合“embedding 是 NS-5 远距召回通道，不是 NS-0～NS-4 前置条件”的共识。
+
+必须修正后才能把 NS-4/5/6 标记为真正完成：
+
+1. **NS-4 缺少旧 `stateCards` → fact memory 的零丢失迁移/候选导入路径。** `schema.ts` v35 目前明确写着“仅新增空表，不转换存量数据”，这与 §16.5 “真实旧库迁移夹具先于 Dexie 版本”和 NS-4 completion bar “old stateCards zero-loss migration”不一致。修复要求：写真实旧库夹具；把五类旧 `stateCards`（character/location/item/faction/event）无损保留为可审候选或人类可读导入 diff；不得自动升级为 confirmed Canon；不得删除或覆盖旧 `stateCards`。
+2. **NS-4 目标表删除/合并时的事实引用处理仍是显式 TODO。** `PROJECT_TABLES.temporalFacts` 注释承认实体/章节单独删除、角色合并、validFrom/To 重解析尚未完成。这直接碰 §16.7/§16.8 的“删除/历史修改不悬空、不自动改稿”红线。修复要求：在被引用目标表登记 refs 或集中生命周期处理；删主体/合并主体/删源章/删 validFrom-To 章均有夹具；删除章节不得静默改事实时序，只能降级或列复核。
+3. **NS-5 “为当前项目历史章节建立语义索引”按钮只调用 `ensureChunkEmbeddings()`，不会先为历史章节建立 `retrievalChunks`。** 旧项目没有 chunks 时会显示“没有需要建索引的块”，实际远距召回为空。修复要求：新增 `rebuildProjectRetrievalChunks(projectId)` 或等价流程；按钮先扫描历史章节并按规范章序/世界组重建块，再可选补 embedding；导入项目后也要有明确重建入口与测试。
+4. **NS-4/5/6 完成记录没有写入本唯一施工权威，ROADMAP 顶部状态仍停在“NS-3 完成，进入 NS-4”。** `CHANGELOG.md` 写了 NS-4/5/6，但 `MASTER-BLUEPRINT.md` §16.9 只到 NS-3。修复要求：补 NS-4/5/6 的阶段完成记录、测试证据、真实 API/浏览器验证状态、未完成项；ROADMAP 状态同步，未完成项不得写“完成”。
+
+建议修复顺序：
+
+1. 先补 NS-4 迁移/导入候选与生命周期引用红线，因为它关系到真实用户旧库和数据主权；
+2. 再补 NS-5 历史项目 chunks 重建入口，否则 embedding UI 对老书没有实际效果；
+3. 最后同步 MASTER-BLUEPRINT / ROADMAP / CHANGELOG 状态，把“可用主链路”和“未过 completion bar 的缺口”分清。
+
+Codex 当前结论：Claude 分支不是“方向错”，主链路有效，测试也扎实；但按 §16 的完成定义，NS-4/NS-5/NS-6 还不能定稿为完成，至少需要补齐以上四项后再进入最终合并审查。
+
+#### 🔧 Codex 接手补强记录 · NS-4/NS-5 数据红线（2026-06-25）
+
+已补齐上条审查中最影响真实用户数据安全和老书可用性的三项：
+
+- NS-4 旧 `stateCards` 零丢失桥接：新增 `migrateStateCardsToTemporalFactCandidates()`，DB v35 升级会把五类旧状态卡生成 `candidate/import` 事实候选；旧 `stateCards` 原样保留，不删除、不覆盖、不自动升 Canon。旧备份导入若没有 `temporalFacts`，导入后也会为新项目生成候选；新备份已有 `temporalFacts` 时不会重复生成；
+- NS-4 生命周期引用：角色删除会清空 `temporalFacts.characterId/objectCharacterId` 并标记 `source-missing`；角色合并会重映射到主角色并保留 confirmed；章节删除会清 `sourceChapterId/validFromChapterId/validToChapterId` 并标记 `source-missing` / `invalid-range`，绝不自动改成相邻章节时序；
+- NS-5 历史项目索引：新增 `rebuildProjectRetrievalChunks()`，设置页“建立检索索引”先扫描历史章节并重建关键词 chunks，再按 embedding 配置补向量；未启用 embedding 时仍可用纯关键词远距召回。删除章节同步清理对应 `retrievalChunks`。
+
+补强验证：
+
+- `npx tsc --noEmit`：通过；
+- NS-4 迁移/导入专项：`R-db-upgrade-fixtures`、`R-export-import-roundtrip`、`R-NS4-fact-predicate-registry` 通过；
+- NS-4 生命周期专项：`R-15-character-reference-remap`、`R-06-delete-node-cascade`、`R-NS6-impact` 通过；
+- NS-5 索引专项：`R-NS5-retrieval`、`R-NS5-embedding`、`R-06-delete-node-cascade` 通过。
+
+#### 🔧 Codex 二次补强记录 · NS-5 层级摘要 + NS-4/6 异常审核 + human-readable IO（2026-06-25）
+
+本次是对上条 Codex 自审缺口的直接修正，重点避免“把未完成说成完成”：
+
+- NS-5 章→卷→全书层级摘要：新增 `narrativeSummaryNodes`（DB v37，`exportable:false` 可重建派生缓存）与 `rebuildProjectNarrativeSummaries()`；设置页“建立检索索引”会同时重建 chunks 与摘要树。v1 使用 deterministic roll-up（来源为当前正文、verified 章节记忆与大纲），不额外烧 AI token，不把摘要当 Canon；
+- NS-5 未来泄漏防线：上下文注入不直接照搬预计算“全书摘要”，而是按规范章序只用当前章之前的 verified 章节点现场 roll-up 为“全书截至本章 / 本卷截至本章 / 当前章之前摘要节点”；当前章与未来章不进入生成上下文。正文改动会把对应章/卷/全书摘要节点标记 `stale`，读取侧再次校验 chapter hash，绕过 store 的旧节点也不会注入；
+- NS-4/NS-6 异常状态：`TemporalFact.status` 扩展 `stale` / `source-missing` / `invalid-range`。历史正文改动导致证据引文失效时标 `stale`；删角色标 `source-missing`；删源章/有效区间章标 `source-missing` / `invalid-range`。`currentFacts` 仍只注入 `confirmed`，异常事实不会污染生成；
+- exception-based review：事实库新增“异常待复核”默认入口，聚合 `stale` / `source-missing` / `invalid-range` 并显示原因；作者可重新确认为 Canon 或否决；
+- §16.7 human-readable IO：事实库可导出事实账本 + 层级叙事摘要 Markdown；外部编辑导回只接受 JSON 候选 diff，并且永远写为 `candidate/import`，未知谓词、跨项目章节引用和重复项会跳过，不能绕过作者确认升级 Canon。
+
+二次补强验证：
+
+- `npx tsc --noEmit`：通过；
+- `npm run check:architecture`：通过；
+- `npm run check:required-tables`：通过（42 tables）；
+- 专项：`R-NS4-human-readable-io`、`R-NS4-fact-ledger`、`R-NS5-retrieval`、`R-NS6-impact`、`R-06-delete-node-cascade`、`R-15-character-reference-remap`、`R-17-ensure-schema`、`project-tables` 通过。
+
+仍需最终复审确认的边界：
+
+- 本次未跑真实浏览器/API 生成验收；新增能力主要是确定性数据/上下文/审核闭环，专项测试覆盖未来泄漏、stale、异常复核和导入导出；
+- 层级摘要 v1 是 deterministic roll-up，不是额外 AI/RAPTOR 压缩。这样先保证可重建、低成本、无未来泄漏；如后续要引入 AI 压缩，必须继续沿用本表的 sourceHash/status 红线。
+
 ---
 
 ## 〆 终

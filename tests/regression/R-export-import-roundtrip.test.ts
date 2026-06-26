@@ -177,6 +177,28 @@ describe('R-roundtrip · 全量内容导出→导入往返', () => {
     expect(detail?.scenes?.[0]?.title).toBe('废墟苏醒')
   })
 
+  it('NS-4 旧备份只有 stateCards 时，导入后生成可审 TemporalFact 候选且不重复', async () => {
+    const srcId = await seedFullProject()
+    const exported = await exportProjectJSON(srcId)
+    delete (exported as any).temporalFacts // 模拟 NS-4 前旧备份：只有 stateCards，没有事实账本
+
+    const importedId = await importProjectJSON(exported)
+    const importedFacts = await db.temporalFacts.where('projectId').equals(importedId).toArray()
+    expect(importedFacts).toHaveLength(1)
+    expect(importedFacts[0]).toMatchObject({
+      subjectName: '林惊羽',
+      predicate: 'powerStage',
+      value: '炼气一层',
+      status: 'candidate',
+      sourceType: 'import',
+    })
+
+    const exportedAgain = await exportProjectJSON(importedId)
+    const importedAgainId = await importProjectJSON(exportedAgain)
+    const importedAgainFacts = await db.temporalFacts.where('projectId').equals(importedAgainId).toArray()
+    expect(importedAgainFacts).toHaveLength(1) // 新备份已有 temporalFacts，不再按 stateCards 重复生成
+  })
+
   it('NS-4 temporalFacts 往返:分类型 FK(character/chapter/worldGroup)重映射到新项目实体', async () => {
     const pid = await db.projects.add({ name: '事实往返', genre: 'fantasy', description: '', targetWordCount: 0, enableMultiWorld: false, createdAt: now, updatedAt: now } as any) as number
     const wgId = await db.worldGroups.add({ projectId: pid, name: '主世界', type: 'main', order: 0, createdAt: now, updatedAt: now } as any) as number

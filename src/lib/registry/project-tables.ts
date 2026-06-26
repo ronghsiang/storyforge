@@ -171,9 +171,8 @@ export const PROJECT_TABLES: TableSpec[] = [
   // 导出/导入：全部分类型 FK + 三个章节引用 + 自引用 supersedesFactId 都做 exportRemap，
   //   未映射（引用的实体/章已不在导出内）默认置 null，事实不丢、引用不悬空。
   // 项目级删除：owner:'project' 自动覆盖。
-  // ⚠️ 待办（§14.6 数据红线，下一专注步；表当前为空、无孤儿风险）：实体/章节【单独删除】时的
-  //    事实重映射——删主体级联、删源章降级候选、validFrom/To 指向被删章按相邻有效章重解析，
-  //    需在被引用目标表登记 refs + 自定义重解析，夹具先行，不在本步草率添加。
+  // 单独删除/合并：角色删除/合并由 character-references.ts 统一重映射；章节删除由 chapter store
+  //   调 fact-ledger/lifecycle.ts 清 source/valid chapter FK 并降级待复核。绝不自动改写相邻时序。
   { table: db.temporalFacts, name: 'temporalFacts', owner: 'project', worldScoped: true,
     exportable: true, exportIdField: true,
     defaults: { status: 'candidate', locked: false },
@@ -192,7 +191,7 @@ export const PROJECT_TABLES: TableSpec[] = [
       { field: 'validToChapterId', remapVia: 'chapters', exportAs: '_vToChapExportId' },
       { field: 'supersedesFactId', remapVia: 'temporalFacts', selfTree: true, exportAs: '_supersedesExportId' },
     ],
-    note: 'NS-4 时序事实；candidate=observation/confirmed=canon；时序只存 chapterId 不缓存 order' },
+    note: 'NS-4 时序事实；candidate=observation/confirmed=canon；stale/source-missing/invalid-range 进入异常审核；时序只存 chapterId 不缓存 order' },
 
   // ───────────────────── NS-5 检索块（可重建派生缓存） ─────────────────────
   // exportable:false —— 从章节正文切块而来、含大体积向量，是可重建缓存，不进 JSON 备份；
@@ -200,6 +199,13 @@ export const PROJECT_TABLES: TableSpec[] = [
   { table: db.retrievalChunks, name: 'retrievalChunks', owner: 'project', worldScoped: true,
     exportable: false,
     note: 'NS-5 检索块·可重建派生缓存(关键词+可选 embedding)，不导出，导入后从正文重建' },
+
+  // ───────────────────── NS-5 层级叙事摘要树（可重建派生缓存） ─────────────────────
+  // exportable:false —— 从章节正文/已验证章节记忆/大纲 roll-up 得出，可按需重建；
+  // 用于章→卷→全书的远距离叙事骨架，不替代事实账本，也不作为 Canon。
+  { table: db.narrativeSummaryNodes, name: 'narrativeSummaryNodes', owner: 'project', worldScoped: true,
+    exportable: false,
+    note: 'NS-5 章→卷→全书层级摘要树·可重建派生缓存；四态 pending/rebuilding/verified/stale' },
 
   // ───────────────────── 多世界 ─────────────────────
   { table: db.worldGroups, name: 'worldGroups', owner: 'project', exportable: true,

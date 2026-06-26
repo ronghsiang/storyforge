@@ -14,7 +14,7 @@ import { buildReviewRevisePrompt, type ReviewResult } from '../../lib/ai/adapter
 import { buildStateExtractPrompt, parseStateDiffs } from '../../lib/ai/adapters/state-extract-adapter'
 import { buildFactExtractPrompt, parseFactExtractResult } from '../../lib/ai/adapters/fact-extract-adapter'
 import { useFactLedgerStore } from '../../stores/fact-ledger'
-import { rebuildChapterChunks, ensureChunkEmbeddings } from '../../lib/retrieval/retrieval'
+import { rebuildChapterChunks, ensureChunkEmbeddings, rebuildProjectNarrativeSummaries } from '../../lib/retrieval/retrieval'
 import { isEmbeddingReady } from '../../lib/ai/adapters/embedding-adapter'
 import { propagateChapterEditStale, analyzeEditImpact } from '../../lib/consistency/impact-analysis'
 import { runChapterMemoryTask } from '../../lib/ai/chapter-memory/run-chapter-memory'
@@ -542,7 +542,7 @@ export default function ChapterEditor({ project, outlineNodeId }: Props) {
     }
   }
 
-  // NS-6：改了历史章后，传播 stale（证据失效的确认事实降级候选）+ 列出受影响后续章，交作者复核。
+  // NS-6：改了历史章后，传播 stale（证据失效的确认事实标记为 stale）+ 列出受影响后续章，交作者复核。
   // 只读·只提示·不自动改任何正文；不删事实、不动 locked。
   const handleEditImpact = async () => {
     if (!currentChapter?.id || !project.id) return
@@ -555,7 +555,7 @@ export default function ChapterEditor({ project, outlineNodeId }: Props) {
       const { factsFromChapter, downstreamChapterIds } = await analyzeEditImpact(project.id, currentChapter.id)
       const parts = [
         `源自本章事实 ${factsFromChapter.length} 条`,
-        demotedFacts > 0 ? `其中 ${demotedFacts} 条证据已失效→降级待复核` : '证据均仍成立',
+        demotedFacts > 0 ? `其中 ${demotedFacts} 条证据已失效→标记 stale 待复核` : '证据均仍成立',
         `建议复核后续 ${downstreamChapterIds.length} 章`,
       ]
       setImpactInfo(parts.join('；'))
@@ -671,6 +671,7 @@ export default function ChapterEditor({ project, outlineNodeId }: Props) {
           worldGroupId: chapterWorldGroupId ?? null,
           knownEntities: characters.map(c => c.name),
         })
+        await rebuildProjectNarrativeSummaries({ projectId: project.id! })
         // NS-5：若启用 embedding，后台为新块补语义向量（best-effort，不阻塞、失败退回关键词）
         const embCfg = useAIConfigStore.getState().embedding
         if (isEmbeddingReady(embCfg)) {

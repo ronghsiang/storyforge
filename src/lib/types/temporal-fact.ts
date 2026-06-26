@@ -24,8 +24,24 @@ export type FactEntityType = 'character' | 'location' | 'storyArc' | 'worldGroup
 /** 事实种类：state 可被新值取代；event 只增不改、不可 supersede；derived 由计算得出、不可人工直接编辑。 */
 export type FactKind = 'state' | 'event' | 'derived'
 
-/** 事实状态机（§14.3）。candidate=观察证据；confirmed=权威 Canon；superseded=被新事实取代；rejected=作者否决。 */
-export type FactStatus = 'candidate' | 'confirmed' | 'rejected' | 'superseded'
+/**
+ * 事实状态机（§14.3 + §16.7）。
+ * - candidate：观察证据/导入候选，待作者确认；
+ * - confirmed：作者确认的权威 Canon；
+ * - superseded：被新确认事实取代；
+ * - rejected：作者否决；
+ * - stale：来源正文已改，原证据不再成立；
+ * - source-missing：主体/客体/来源被删除或无法映射；
+ * - invalid-range：validFrom/validTo 的章节引用失效，时序区间需人工复核。
+ */
+export type FactStatus =
+  | 'candidate'
+  | 'confirmed'
+  | 'rejected'
+  | 'superseded'
+  | 'stale'
+  | 'source-missing'
+  | 'invalid-range'
 
 export type FactValueType = 'string' | 'number' | 'boolean' | 'enum' | 'entity-ref' | 'json'
 

@@ -4,7 +4,7 @@
  */
 import { describe, it, expect, beforeEach, afterEach } from 'vitest'
 import { db } from '../../src/lib/db/schema'
-import { adoptFactCandidates, confirmFactCandidate } from '../../src/lib/fact-ledger/fact-ledger'
+import { adoptFactCandidates, confirmFactCandidate, rejectFactCandidate } from '../../src/lib/fact-ledger/fact-ledger'
 import type { ExtractedFactCandidate } from '../../src/lib/ai/adapters/fact-extract-adapter'
 
 const now = Date.now()
@@ -65,5 +65,24 @@ describe('NS-4 · fact-ledger', () => {
     const old = (await db.temporalFacts.where('projectId').equals(pid).filter(f => f.value === '洛阳').toArray())[0]
     expect(old.status).toBe('confirmed')      // locked 不被动
     expect(old.validToChapterId).toBeNull()
+  })
+
+  it('异常状态可由作者重新确认或否决', async () => {
+    const { pid, c1 } = await seed()
+    const staleId = await db.temporalFacts.add({
+      projectId: pid, subjectName: '林飞', predicate: 'location', factKind: 'state', value: '洛阳',
+      sourceType: 'chapter', sourceChapterId: c1, validFromChapterId: c1,
+      status: 'stale', locked: false, createdAt: now, updatedAt: now,
+    } as any) as number
+    const missingId = await db.temporalFacts.add({
+      projectId: pid, subjectName: '旧角色', predicate: 'location', factKind: 'state', value: '旧城',
+      sourceType: 'manual', status: 'source-missing', locked: false, createdAt: now, updatedAt: now,
+    } as any) as number
+
+    await confirmFactCandidate(staleId)
+    await rejectFactCandidate(missingId)
+
+    expect((await db.temporalFacts.get(staleId))?.status).toBe('confirmed')
+    expect((await db.temporalFacts.get(missingId))?.status).toBe('rejected')
   })
 })

@@ -7,7 +7,7 @@ import { useState } from 'react'
 import { Sparkles, Loader2 } from 'lucide-react'
 import { useAIConfigStore } from '../../stores/ai-config'
 import { useProjectStore } from '../../stores/project'
-import { ensureChunkEmbeddings } from '../../lib/retrieval/retrieval'
+import { ensureChunkEmbeddings, rebuildProjectNarrativeSummaries, rebuildProjectRetrievalChunks } from '../../lib/retrieval/retrieval'
 import { isEmbeddingReady } from '../../lib/ai/adapters/embedding-adapter'
 import type { EmbeddingConfig } from '../../lib/types'
 
@@ -36,16 +36,30 @@ export default function EmbeddingConfigCard() {
   const [msg, setMsg] = useState('')
 
   const buildIndex = async () => {
-    if (!currentProjectId || !isEmbeddingReady(embedding)) return
+    if (!currentProjectId) return
     setIndexing(true); setMsg(''); setProgress('准备中…')
     try {
+      const chunks = await rebuildProjectRetrievalChunks({
+        projectId: currentProjectId,
+        onProgress: (done, total) => setProgress(`切块 ${done}/${total} 章`),
+      })
+      const summaries = await rebuildProjectNarrativeSummaries({
+        projectId: currentProjectId,
+        onProgress: (done, total) => setProgress(`摘要 ${done}/${total} 章`),
+      })
+      if (!isEmbeddingReady(embedding)) {
+        setMsg(`检索索引已就绪:扫描 ${chunks.chapters} 章,重建 ${chunks.rebuiltChapters} 章 / ${chunks.chunks} 块;摘要树 ${summaries.chapterNodes} 章、${summaries.volumeNodes} 卷、${summaries.bookNodes} 全书。未配置 embedding,将使用层级摘要+关键词检索。`)
+        return
+      }
       const r = await ensureChunkEmbeddings({
         projectId: currentProjectId, cfg: embedding,
-        onProgress: (done, total) => setProgress(`${done}/${total} 块`),
+        onProgress: (done, total) => setProgress(`嵌入 ${done}/${total} 块`),
       })
-      setMsg(r.total === 0 ? '没有需要建索引的块(可能正文还没切块或已全部就绪)' : `完成:本次嵌入 ${r.embedded} 块,跳过已就绪 ${r.skipped} 块`)
+      setMsg(r.total === 0
+        ? `检索索引已就绪:扫描 ${chunks.chapters} 章,当前 ${chunks.chunks} 块;摘要树 ${summaries.chapterNodes} 章、${summaries.volumeNodes} 卷、${summaries.bookNodes} 全书;语义向量已全部就绪。`
+        : `完成:扫描 ${chunks.chapters} 章,重建 ${chunks.rebuiltChapters} 章 / ${chunks.chunks} 块;摘要树 ${summaries.chapterNodes} 章、${summaries.volumeNodes} 卷、${summaries.bookNodes} 全书;本次嵌入 ${r.embedded} 块,跳过已就绪 ${r.skipped} 块`)
     } catch (e) {
-      setMsg(`建立索引失败:${e instanceof Error ? e.message : String(e)}（已自动退回关键词检索,不影响生成）`)
+      setMsg(`建立索引失败:${e instanceof Error ? e.message : String(e)}（已有索引仍可用;embedding 失败会自动退回关键词检索）`)
     } finally {
       setIndexing(false); setProgress('')
     }
@@ -67,6 +81,19 @@ export default function EmbeddingConfigCard() {
         关闭时,远距前文检索只走<strong>关键词通道</strong>(纯本机、零成本)。开启后叠加<strong>语义向量</strong>召回——更擅长"几百章前靠近义/语义命中的伏笔",
         与关键词混合打分,失败自动退回关键词、不阻断生成。<strong>云端模型会把正文发往该服务商;选本地 Ollama 则一个字都不出本机。</strong>
       </p>
+
+      <div className="pt-2 border-t border-border/50 mb-4">
+        <button onClick={buildIndex} disabled={indexing || !currentProjectId}
+          className="flex items-center gap-2 px-3 py-1.5 bg-accent/10 text-accent text-sm rounded-lg hover:bg-accent/20 disabled:opacity-40 transition-colors">
+          {indexing ? <Loader2 className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4" />}
+          {indexing ? `建立中… ${progress}` : '为当前项目历史章节建立检索索引'}
+        </button>
+        {!currentProjectId && <p className="text-[11px] text-text-muted mt-1.5">打开一个项目后,这里可为其历史章节批量建索引。</p>}
+        <p className="text-[11px] text-text-muted mt-1.5">
+          先按章节正文重建关键词块与章→卷→全书摘要树;若已启用并配置 embedding,再只嵌入"缺向量或换了模型"的块。未启用 embedding 时,远距召回仍可走层级摘要+纯关键词通道。
+        </p>
+        {msg && <p className="text-[11px] text-text-secondary mt-1.5 px-2 py-1 rounded bg-bg-base">{msg}</p>}
+      </div>
 
       {embedding.enabled && (
         <div className="space-y-3">
@@ -115,19 +142,9 @@ export default function EmbeddingConfigCard() {
             <input type="password" value={embedding.apiKey} onChange={e => setEmbeddingConfig({ apiKey: e.target.value })}
               placeholder="sk-..." className="w-full px-3 py-1.5 bg-bg-base border border-border rounded text-text-primary text-xs focus:outline-none focus:border-accent" />
           </div>
-
-          <div className="pt-2 border-t border-border/50">
-            <button onClick={buildIndex} disabled={indexing || !currentProjectId || !isEmbeddingReady(embedding)}
-              className="flex items-center gap-2 px-3 py-1.5 bg-accent/10 text-accent text-sm rounded-lg hover:bg-accent/20 disabled:opacity-40 transition-colors">
-              {indexing ? <Loader2 className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4" />}
-              {indexing ? `建立中… ${progress}` : '为当前项目历史章节建立语义索引'}
-            </button>
-            {!currentProjectId && <p className="text-[11px] text-text-muted mt-1.5">打开一个项目后,这里可为其历史章节批量建索引。</p>}
-            <p className="text-[11px] text-text-muted mt-1.5">
-              只嵌入"缺向量或换了模型"的块,幂等可重复点;新写章节在接受时会自动建索引。约百万字嵌一次,云端约 ¥0.2、本地免费。
-            </p>
-            {msg && <p className="text-[11px] text-text-secondary mt-1.5 px-2 py-1 rounded bg-bg-base">{msg}</p>}
-          </div>
+          <p className="text-[11px] text-text-muted">
+            语义向量幂等可续跑;新写章节在接受时会自动建索引。约百万字嵌一次,云端约 ¥0.2、本地免费。
+          </p>
         </div>
       )}
     </div>

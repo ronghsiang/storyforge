@@ -9,13 +9,16 @@
  */
 import { db } from '../db/schema'
 import type { RetrievalChunk } from '../types/retrieval-chunk'
+import type { NarrativeSummaryNode } from '../types/narrative-summary'
 import { cosineSimilarity } from '../types/retrieval-chunk'
-import type { Chapter, EmbeddingConfig } from '../types'
-import { normalizeChapterText, hashChapterText } from '../ai/chapter-memory/text-normalization'
+import type { Chapter, EmbeddingConfig, OutlineNode } from '../types'
+import { normalizeChapterText, hashChapterText, getChapterDerivedMemoryStatus, sha256Text } from '../ai/chapter-memory/text-normalization'
 import { resolveCanonicalChapterSequence } from '../ai/chapter-memory/canonical-chapter-sequence'
 import { embedTexts, embeddingModelTag, isEmbeddingReady } from '../ai/adapters/embedding-adapter'
 
 const CHUNK_SIZE = 400
+const SUMMARY_EXCERPT_CHARS = 220
+const ROLLUP_CHARS = 1200
 
 /** 把正文切成定长块（按段落边界尽量不切断）。 */
 export function splitIntoChunks(text: string, size = CHUNK_SIZE): string[] {
@@ -81,6 +84,319 @@ export async function rebuildChapterChunks(args: {
   }))
   if (rows.length) await db.retrievalChunks.bulkAdd(rows)
   return { rebuilt: true, count: rows.length }
+}
+
+/**
+ * 为整个项目重建/补齐检索块。用于老书、导入项目和手动“建立索引”：
+ * 先确保历史章节都有 retrievalChunks，embedding 再作为可选第二步补向量。
+ */
+export async function rebuildProjectRetrievalChunks(args: {
+  projectId: number
+  onProgress?: (done: number, total: number) => void
+}): Promise<{ chapters: number; rebuiltChapters: number; chunks: number }> {
+  const [chapters, outlineNodes, characters, codexEntries, locations] = await Promise.all([
+    db.chapters.where('projectId').equals(args.projectId).toArray(),
+    db.outlineNodes.where('projectId').equals(args.projectId).toArray(),
+    db.characters.where('projectId').equals(args.projectId).toArray(),
+    db.codexEntries.where('projectId').equals(args.projectId).toArray(),
+    db.importantLocations.where('projectId').equals(args.projectId).toArray(),
+  ])
+  const knownEntities = [
+    ...characters.map(c => c.name),
+    ...codexEntries.map(e => e.name),
+    ...locations.map(l => l.name),
+  ].filter((name): name is string => !!name && name.length >= 2)
+  const { sequence } = resolveCanonicalChapterSequence(outlineNodes, chapters)
+  const worldByChapter = new Map<number, number | null>()
+  sequence.forEach(entry => {
+    if (entry.chapter.id != null) worldByChapter.set(entry.chapter.id, entry.worldGroupId)
+  })
+
+  let rebuiltChapters = 0
+  let chunks = 0
+  const sorted = sequence.map(entry => entry.chapter)
+  const sequenced = new Set(sorted.map(chapter => chapter.id))
+  for (const chapter of chapters) {
+    if (!sequenced.has(chapter.id)) sorted.push(chapter)
+  }
+
+  for (let i = 0; i < sorted.length; i++) {
+    const chapter = sorted[i]
+    const result = await rebuildChapterChunks({
+      projectId: args.projectId,
+      chapter,
+      worldGroupId: chapter.id != null ? worldByChapter.get(chapter.id) ?? null : null,
+      knownEntities,
+    })
+    if (result.rebuilt) rebuiltChapters++
+    chunks += result.count
+    args.onProgress?.(i + 1, sorted.length)
+  }
+  return { chapters: sorted.length, rebuiltChapters, chunks }
+}
+
+function capText(text: string, max = SUMMARY_EXCERPT_CHARS): string {
+  const clean = text.replace(/\s+/g, ' ').trim()
+  if (clean.length <= max) return clean
+  return `${clean.slice(0, max)}…`
+}
+
+function rollupLines(lines: string[], max = ROLLUP_CHARS): string {
+  const out: string[] = []
+  let used = 0
+  for (const line of lines) {
+    const clean = line.trim()
+    if (!clean) continue
+    if (used + clean.length > max) {
+      const left = Math.max(0, max - used)
+      if (left > 20) out.push(`${clean.slice(0, left)}…`)
+      break
+    }
+    out.push(clean)
+    used += clean.length
+  }
+  return out.join('\n')
+}
+
+function outlineById(nodes: OutlineNode[]): Map<number, OutlineNode> {
+  return new Map(nodes.filter(node => node.id != null).map(node => [node.id!, node]))
+}
+
+function nearestVolume(node: OutlineNode | null, byId: Map<number, OutlineNode>): OutlineNode | null {
+  let cur = node
+  const guard = new Set<number>()
+  while (cur?.id != null) {
+    if (cur.type === 'volume') return cur
+    if (cur.parentId == null || guard.has(cur.id)) return null
+    guard.add(cur.id)
+    cur = byId.get(cur.parentId) ?? null
+  }
+  return null
+}
+
+async function chapterSummaryText(chapter: Chapter, outlineNode: OutlineNode | null): Promise<{ summary: string; sourceHash: string; status: NarrativeSummaryNode['status'] }> {
+  const sourceHash = await hashChapterText(chapter.content || '')
+  const memory = await getChapterDerivedMemoryStatus(chapter)
+  if (chapter.summary?.trim() && memory.summary === 'verified') {
+    return { summary: chapter.summary.trim(), sourceHash, status: 'verified' }
+  }
+  const text = normalizeChapterText(chapter.content || '')
+  if (text) {
+    const outline = outlineNode?.summary?.trim()
+    const fallback = outline ? `${outline}\n正文摘录：${capText(text)}` : `正文摘录：${capText(text)}`
+    return { summary: fallback, sourceHash, status: 'verified' }
+  }
+  if (outlineNode?.summary?.trim()) {
+    return { summary: outlineNode.summary.trim(), sourceHash, status: 'pending' }
+  }
+  return { summary: '', sourceHash, status: 'pending' }
+}
+
+/**
+ * NS-5 · 重建章→卷→全书层级摘要树。
+ *
+ * v1 采用 deterministic roll-up：不额外烧 AI token；来源是当前正文、已验证章节摘要和大纲。
+ * 这是派生记忆，不是 Canon；每次重建先把旧节点标为 rebuilding，再原子替换为新 verified/pending 节点。
+ */
+export async function rebuildProjectNarrativeSummaries(args: {
+  projectId: number
+  onProgress?: (done: number, total: number) => void
+}): Promise<{ chapterNodes: number; volumeNodes: number; bookNodes: number; staleNodes: number }> {
+  const [chapters, outlineNodes, characters, codexEntries, locations] = await Promise.all([
+    db.chapters.where('projectId').equals(args.projectId).toArray(),
+    db.outlineNodes.where('projectId').equals(args.projectId).toArray(),
+    db.characters.where('projectId').equals(args.projectId).toArray(),
+    db.codexEntries.where('projectId').equals(args.projectId).toArray(),
+    db.importantLocations.where('projectId').equals(args.projectId).toArray(),
+  ])
+  const existing = await db.narrativeSummaryNodes.where('projectId').equals(args.projectId).toArray()
+  for (const node of existing) {
+    if (node.id != null) await db.narrativeSummaryNodes.update(node.id, { status: 'rebuilding', updatedAt: Date.now() })
+  }
+
+  const knownEntities = [
+    ...characters.map(c => c.name),
+    ...codexEntries.map(e => e.name),
+    ...locations.map(l => l.name),
+  ].filter((name): name is string => !!name && name.length >= 2)
+  const byId = outlineById(outlineNodes)
+  const { sequence } = resolveCanonicalChapterSequence(outlineNodes, chapters)
+  const sequencedIds = new Set(sequence.map(entry => entry.chapter.id).filter((id): id is number => id != null))
+  const ordered = [
+    ...sequence,
+    ...chapters
+      .filter(chapter => chapter.id != null && !sequencedIds.has(chapter.id))
+      .sort((a, b) => a.order - b.order || (a.id ?? 0) - (b.id ?? 0))
+      .map(chapter => ({ chapter, outlineNode: null, worldGroupId: null })),
+  ]
+
+  const now = Date.now()
+  const next: NarrativeSummaryNode[] = []
+  const chapterNodesByVolume = new Map<number | 'root', NarrativeSummaryNode[]>()
+
+  for (let i = 0; i < ordered.length; i++) {
+    const entry = ordered[i]
+    const chapter = entry.chapter
+    if (chapter.id == null) continue
+    const source = await chapterSummaryText(chapter, entry.outlineNode)
+    const title = entry.outlineNode?.title || chapter.title || `章节#${chapter.id}`
+    const summary = source.summary
+    const volume = nearestVolume(entry.outlineNode, byId)
+    const node: NarrativeSummaryNode = {
+      projectId: args.projectId,
+      worldGroupId: entry.worldGroupId ?? null,
+      level: 'chapter',
+      sourceChapterId: chapter.id,
+      sourceOutlineNodeId: entry.outlineNode?.id ?? null,
+      title,
+      summary,
+      keywords: extractKeywords(`${title}\n${summary}`, knownEntities),
+      sourceHash: source.sourceHash,
+      status: source.status,
+      generatedBy: 'system-rollup',
+      createdAt: now,
+      updatedAt: now,
+    }
+    next.push(node)
+    const volumeKey = volume?.id ?? 'root'
+    const list = chapterNodesByVolume.get(volumeKey) ?? []
+    list.push(node)
+    chapterNodesByVolume.set(volumeKey, list)
+    args.onProgress?.(i + 1, ordered.length)
+  }
+
+  const volumeNodes: NarrativeSummaryNode[] = []
+  for (const [volumeKey, children] of chapterNodesByVolume) {
+    if (!children.length) continue
+    const volume = typeof volumeKey === 'number' ? byId.get(volumeKey) ?? null : null
+    const title = volume?.title ?? '未分卷章节'
+    const sourceText = children.map(child => `${child.sourceChapterId}:${child.sourceHash}:${child.status}:${child.summary}`).join('\n')
+    const summary = rollupLines(children.map(child => `- ${child.title}：${child.summary}`))
+    const status = children.some(child => child.status === 'verified') ? 'verified' : 'pending'
+    const node: NarrativeSummaryNode = {
+      projectId: args.projectId,
+      worldGroupId: children.find(child => child.worldGroupId != null)?.worldGroupId ?? volume?.worldGroupId ?? null,
+      level: 'volume',
+      sourceChapterId: null,
+      sourceOutlineNodeId: volume?.id ?? null,
+      title,
+      summary,
+      keywords: extractKeywords(`${title}\n${summary}`, knownEntities),
+      sourceHash: await sha256Text(sourceText),
+      status,
+      generatedBy: 'system-rollup',
+      createdAt: now,
+      updatedAt: now,
+    }
+    volumeNodes.push(node)
+    next.push(node)
+  }
+
+  const bookSummary = rollupLines(volumeNodes.length
+    ? volumeNodes.map(node => `- ${node.title}：${node.summary}`)
+    : next.filter(node => node.level === 'chapter').map(node => `- ${node.title}：${node.summary}`), 1800)
+  const bookSource = next.map(node => `${node.level}:${node.sourceOutlineNodeId ?? ''}:${node.sourceChapterId ?? ''}:${node.sourceHash}:${node.status}`).join('\n')
+  if (bookSummary) {
+    next.push({
+      projectId: args.projectId,
+      worldGroupId: null,
+      level: 'book',
+      sourceChapterId: null,
+      sourceOutlineNodeId: null,
+      title: '全书叙事摘要',
+      summary: bookSummary,
+      keywords: extractKeywords(bookSummary, knownEntities),
+      sourceHash: await sha256Text(bookSource),
+      status: next.some(node => node.status === 'verified') ? 'verified' : 'pending',
+      generatedBy: 'system-rollup',
+      createdAt: now,
+      updatedAt: now,
+    })
+  }
+
+  await db.transaction('rw', db.narrativeSummaryNodes, async () => {
+    const keys = (await db.narrativeSummaryNodes.where('projectId').equals(args.projectId).primaryKeys()) as number[]
+    if (keys.length) await db.narrativeSummaryNodes.bulkDelete(keys)
+    if (next.length) await db.narrativeSummaryNodes.bulkAdd(next)
+  })
+  return {
+    chapterNodes: next.filter(node => node.level === 'chapter').length,
+    volumeNodes: next.filter(node => node.level === 'volume').length,
+    bookNodes: next.filter(node => node.level === 'book').length,
+    staleNodes: existing.filter(node => node.status === 'stale' || node.status === 'rebuilding').length,
+  }
+}
+
+/**
+ * 按当前章读取已验证的层级摘要：全书 + 所属卷 + 当前章之前的少量章节节点。
+ * 未验证/重建中/过期节点不注入，避免派生记忆污染生成。
+ */
+export async function readNarrativeSummaryContext(args: {
+  projectId: number
+  currentChapterId: number
+  worldGroupId?: number | null
+  maxChapterNodes?: number
+}): Promise<string> {
+  const [nodes, outlineNodes, chapters] = await Promise.all([
+    db.narrativeSummaryNodes.where('projectId').equals(args.projectId).filter(node => node.status === 'verified').toArray(),
+    db.outlineNodes.where('projectId').equals(args.projectId).toArray(),
+    db.chapters.where('projectId').equals(args.projectId).toArray(),
+  ])
+  if (!nodes.length) return ''
+  const { sequence } = resolveCanonicalChapterSequence(outlineNodes, chapters)
+  const orderOf = new Map<number, number>()
+  const outlineOf = new Map<number, OutlineNode | null>()
+  const chapterById = new Map(chapters.filter(chapter => chapter.id != null).map(chapter => [chapter.id!, chapter]))
+  sequence.forEach((entry, i) => {
+    if (entry.chapter.id != null) {
+      orderOf.set(entry.chapter.id, i)
+      outlineOf.set(entry.chapter.id, entry.outlineNode)
+    }
+  })
+  const currentOrder = orderOf.get(args.currentChapterId)
+  if (currentOrder == null) return ''
+  const byId = outlineById(outlineNodes)
+  const currentVolume = nearestVolume(outlineOf.get(args.currentChapterId) ?? null, byId)
+  const staleSourceIds = new Set<number>()
+  for (const node of nodes) {
+    if (node.level !== 'chapter' || node.sourceChapterId == null) continue
+    const chapter = chapterById.get(node.sourceChapterId)
+    if (!chapter || await hashChapterText(chapter.content || '') !== node.sourceHash) {
+      staleSourceIds.add(node.sourceChapterId)
+    }
+  }
+  const lines: string[] = ['【层级叙事摘要（章→卷→全书，派生记忆；只含已验证节点）】']
+  const priorChapterNodes = nodes
+    .filter(node => {
+      if (node.level !== 'chapter' || node.sourceChapterId == null) return false
+      if (staleSourceIds.has(node.sourceChapterId)) return false
+      const order = orderOf.get(node.sourceChapterId)
+      if (order == null || order >= currentOrder) return false
+      if (node.worldGroupId != null && node.worldGroupId !== (args.worldGroupId ?? null)) return false
+      return true
+    })
+    .sort((a, b) => (orderOf.get(a.sourceChapterId!) ?? -1) - (orderOf.get(b.sourceChapterId!) ?? -1))
+
+  if (priorChapterNodes.length) {
+    lines.push(`【全书截至本章】\n${rollupLines(priorChapterNodes.map(node => `- ${node.title}：${node.summary}`), 1800)}`)
+  }
+
+  const volumeNodes = currentVolume
+    ? priorChapterNodes.filter(node => {
+        const outline = node.sourceOutlineNodeId != null ? byId.get(node.sourceOutlineNodeId) ?? null : null
+        return nearestVolume(outline, byId)?.id === currentVolume.id
+      })
+    : []
+  if (currentVolume && volumeNodes.length) {
+    lines.push(`【本卷截至本章：${currentVolume.title}】\n${rollupLines(volumeNodes.map(node => `- ${node.title}：${node.summary}`), 1200)}`)
+  }
+
+  const recent = priorChapterNodes.slice(-(args.maxChapterNodes ?? 8))
+  if (recent.length) {
+    lines.push('【当前章之前的摘要节点】')
+    for (const node of recent) lines.push(`- ${node.title}：${node.summary}`)
+  }
+  return lines.length > 1 ? lines.join('\n') : ''
 }
 
 export interface RetrievedChunk {

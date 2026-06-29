@@ -3,7 +3,8 @@ import { Plus, Trash2, ChevronDown, ChevronRight } from 'lucide-react'
 import { useCharacterStore } from '../../stores/character'
 import type { Project, Character } from '../../lib/types'
 import { filterCharactersByRoleWeight } from '../../lib/character/character-axes'
-import CharacterDimensionFields, { CHARACTER_DIMENSION_FIELDS } from './CharacterDimensionFields'
+import CharacterDimensionFields from './CharacterDimensionFields'
+import { filledDimensions } from '../../lib/character/character-dimensions'
 
 interface Props {
   project: Project
@@ -59,7 +60,7 @@ export default function CharacterNPCPanel({ project }: Props) {
       ) : (
         <div className="bg-bg-surface border border-border rounded-xl divide-y divide-border">
           {list.map(c => {
-            const filled = CHARACTER_DIMENSION_FIELDS.filter(f => (c[f.key] as string)?.trim()).length
+            const filled = filledDimensions(c).filter(k => k !== 'shortDescription' && k !== 'location').length
             const isOpen = expanded.has(c.id!)
             return (
             <div key={c.id} className="p-3 hover:bg-bg-hover transition-colors">
@@ -105,7 +106,7 @@ export default function CharacterNPCPanel({ project }: Props) {
               </div>
               {isOpen && (
                 <div className="mt-3 pl-7">
-                  <CharacterDimensionFields character={c} onChange={patch => update(c.id!, patch)} />
+                  <CharacterDimensionFields character={c} onChange={patch => update(c.id!, patch)} exclude={['shortDescription', 'location']} />
                 </div>
               )}
             </div>

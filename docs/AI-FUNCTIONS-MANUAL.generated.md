@@ -99,7 +99,7 @@ AI 输出经 `adopt({ target, data })` 写回,只有这里登记的字段可写(
 | 目标表 | 可写字段 |
 |---|---|
 | `chapters` | `content` `continuityHandoff` `notes` `order` `outlineNodeId` `planReconciliation` `status` `summary` `summarySourceTextHash` `summaryTextNormalizationVersion` `title` `wordCount` |
-| `characters` | `abilities` `activeChapterRange` `alignment` `appearance` `arc` `background` `ending` `exitChapterId` `firstAppearChapterId` `firstAppearance` `homeWorldGroupId` `isCrossWorld` `location` `moralAxis` `motivation` `name` `orderAxis` `personality` `relationships` `role` `roleWeight` `shortDescription` `storyRole` |
+| `characters` | `abilities` `activeChapterRange` `alignment` `appearance` `arc` `background` `ending` `exitChapterId` `fears` `firstAppearChapterId` `firstAppearance` `goals` `habits` `homeWorldGroupId` `identity` `innerConflict` `isCrossWorld` `keyEvents` `location` `moralAxis` `motivation` `name` `orderAxis` `personality` `powerLevel` `profile` `relationships` `role` `roleWeight` `shortDescription` `signatureItem` `speechStyle` `storyRole` `strengths` `values` `weaknesses` |
 | `codexCategories` | `builtInKey` `domain` `fieldSchema` `hidden` `icon` `name` `order` `parentId` `worldGroupId` |
 | `codexEntries` | `categoryId` `description` `fields` `icon` `importance` `name` `order` `refs` `summary` `tags` `worldGroupId` |
 | `creativeRules` | `atmosphere` `citedInsightIds` `citedReferenceIds` `consistencyRules` `narrativePOV` `prohibitions` `referenceWorksV2` `specialRequirements` `writingStyle` |
@@ -173,4 +173,4 @@ AI 输出经 `adopt({ target, data })` 写回,只有这里登记的字段可写(
 
 ---
 
-生成时间基准:commit `f235652`
+生成时间基准:commit `5ce1692`

@@ -87,7 +87,7 @@ export default function CharacterMinorPanel({ project }: Props) {
               />
               {(editing === c.id) ? (
                 <div className="mt-2 space-y-1.5">
-                  <CharacterDimensionFields character={c} onChange={patch => update(c.id!, patch)} />
+                  <CharacterDimensionFields character={c} onChange={patch => update(c.id!, patch)} exclude={['shortDescription']} />
                   <button
                     onClick={() => setEditing(null)}
                     className="text-xs text-accent hover:underline"

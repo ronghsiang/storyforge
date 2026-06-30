@@ -4,6 +4,7 @@ import { useCharacterStore } from '../../stores/character'
 import type { Project, Character } from '../../lib/types'
 import { filterCharactersByRoleWeight } from '../../lib/character/character-axes'
 import CharacterDimensionFields from './CharacterDimensionFields'
+import CharacterSupplementAction from './CharacterSupplementAction'
 import { filledDimensions } from '../../lib/character/character-dimensions'
 
 interface Props {
@@ -96,6 +97,13 @@ export default function CharacterNPCPanel({ project }: Props) {
                 {filled > 0 && !isOpen && (
                   <span className="flex-shrink-0 text-[11px] text-text-muted whitespace-nowrap" title="已有完整设定，点左侧箭头展开">已填 {filled} 项 ▸</span>
                 )}
+                <CharacterSupplementAction
+                  character={c}
+                  projectId={project.id!}
+                  worldGroupId={c.homeWorldGroupId ?? null}
+                  onDone={() => loadAll(project.id!)}
+                  compact
+                />
                 <button
                   onClick={() => deleteCharacter(c.id!)}
                   className="p-1 text-text-muted hover:text-error flex-shrink-0"

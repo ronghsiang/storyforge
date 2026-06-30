@@ -19,6 +19,7 @@ import type {
 } from '../../lib/types'
 import CharacterStatusPanel from './CharacterStatusPanel'
 import CharacterDimensionPicker from './CharacterDimensionPicker'
+import CharacterSupplementAction from './CharacterSupplementAction'
 import { CHARACTER_DIMENSIONS, type CharacterDimensionKey } from '../../lib/character/character-dimensions'
 import CharacterAxesPicker from './CharacterAxesPicker'
 import {
@@ -402,7 +403,7 @@ function CharacterDetailCard({
   multiWorld?: boolean
   worldGroups?: import('../../lib/types').WorldGroup[]
 }) {
-  const { updateCharacter } = useCharacterStore()
+  const { updateCharacter, loadAll } = useCharacterStore()
   const [expanded, setExpanded] = useState(true)
   const glyphColor = GLYPH_COLORS[charIndex % GLYPH_COLORS.length]
 
@@ -490,6 +491,12 @@ function CharacterDetailCard({
 
         {/* 操作按钮 */}
         <div className="flex items-center gap-1 shrink-0">
+          <CharacterSupplementAction
+            character={char}
+            projectId={projectId}
+            worldGroupId={char.homeWorldGroupId ?? null}
+            onDone={() => loadAll(projectId)}
+          />
           <button onClick={() => setExpanded(!expanded)} className="p-1.5 text-text-muted hover:text-text-primary rounded transition-colors">
             {expanded ? <ChevronDown className="w-4 h-4" /> : <ChevronRight className="w-4 h-4" />}
           </button>

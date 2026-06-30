@@ -4,6 +4,7 @@ import { useCharacterStore } from '../../stores/character'
 import type { Project, Character } from '../../lib/types'
 import { filterCharactersByRoleWeight } from '../../lib/character/character-axes'
 import CharacterDimensionFields from './CharacterDimensionFields'
+import CharacterSupplementAction from './CharacterSupplementAction'
 
 interface Props {
   project: Project
@@ -69,6 +70,13 @@ export default function CharacterMinorPanel({ project }: Props) {
                   value={c.name}
                   onChange={e => update(c.id!, { name: e.target.value })}
                   className="flex-1 px-2 py-1 bg-bg-base border border-border rounded text-sm font-medium text-text-primary focus:outline-none focus:border-accent"
+                />
+                <CharacterSupplementAction
+                  character={c}
+                  projectId={project.id!}
+                  worldGroupId={c.homeWorldGroupId ?? null}
+                  onDone={() => loadAll(project.id!)}
+                  compact
                 />
                 <button
                   onClick={() => deleteCharacter(c.id!)}

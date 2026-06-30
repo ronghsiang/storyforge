@@ -82,8 +82,9 @@ export default function CharacterSupplementAction({ character, projectId, worldG
     const patch = parseCharacterSupplement(text, dims)
     if (Object.keys(patch).length === 0) return
     // 写：定点更新该角色，只动补全字段
-    const result = await adopt({ projectId, worldGroupId: worldGroupId ?? null, target: 'characters', recordId: character.id!, mode: 'merge-diffs', data: patch })
-    setDone(result.written[0]?.fields.filter(f => f !== 'updatedAt').length ?? 0)
+    await adopt({ projectId, worldGroupId: worldGroupId ?? null, target: 'characters', recordId: character.id!, mode: 'merge-diffs', data: patch })
+    // 真正补全的维度数 = 解析出的补丁字段数（adopt 结果含 role/轴等派生字段，不能用来计数）
+    setDone(Object.keys(patch).length)
     onDone?.()
   }
 

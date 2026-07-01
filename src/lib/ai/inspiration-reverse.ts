@@ -12,6 +12,7 @@ import type {
 } from '../types'
 import { usePromptStore } from '../../stores/prompt'
 import { renderPrompt } from './prompt-engine'
+import { extractJSON } from './adapters/import-adapter'
 
 // ── 类型 ────────────────────────────────────────────────────────────────
 
@@ -118,10 +119,10 @@ export function buildInspirationReverseMultiWorldPrompt(
 }
 
 export function parseReverseMultiWorldOutput(output: string): ReverseMultiWorldResult | null {
-  const jsonMatch = output.match(/```(?:json)?\s*\n?([\s\S]*?)```/)
-  const jsonStr = jsonMatch ? jsonMatch[1].trim() : output.trim()
   try {
-    const p = JSON.parse(jsonStr)
+    // 健壮提取：围栏 / 未闭合围栏 / 裸 { 起点 + 截断修复。避免模型带前后文（如"以下是结果："）时
+    // 第一遍解析失败、反推结果不显示，用户要重推或退出重进才出来（社区反馈）。
+    const p = extractJSON(output) as Record<string, any>  // eslint-disable-line @typescript-eslint/no-explicit-any
     const storyCore: ReverseStoryCore = {
       logline: String(p.storyCore?.logline || ''),
       theme: String(p.storyCore?.theme || ''),
@@ -185,11 +186,9 @@ export function buildInspirationReversePrompt(
 // ── 解析输出 ─────────────────────────────────────────────────────────────
 
 export function parseReverseOutput(output: string): ReverseResult | null {
-  const jsonMatch = output.match(/```(?:json)?\s*\n?([\s\S]*?)```/)
-  const jsonStr = jsonMatch ? jsonMatch[1].trim() : output.trim()
-
   try {
-    const parsed = JSON.parse(jsonStr)
+    // 健壮提取（同上）：模型带前后文/无围栏时也能取到 JSON，第一遍就出结果。
+    const parsed = extractJSON(output) as Record<string, any>  // eslint-disable-line @typescript-eslint/no-explicit-any
 
     const worldview: ReverseWorldview = {
       worldOrigin: String(parsed.worldview?.worldOrigin || ''),

@@ -213,7 +213,15 @@
 # ═══ 社区反馈批次（2026-06-30 · Windows 启动 / 细纲采纳 / 主线约束 / 主题可读性）═══
 
 > **来源**：2026-06-30 作者转述群内用户反馈 + Codex 本地只读定位。
-> **当前状态**：已定位，尚未实施修复。本批次应先在独立分支修复，完成后交 Claude 复审。
+> **当前状态（2026-07-01 · Claude 已修复一轮）**：
+> - ✅ **CF-2 场景采纳崩溃** — 已修复并部署 main（`json→arr` + `normalizeDetailedScenes` 自愈，R-CF2）。
+> - ✅ **CF-3 大纲偏离主线** — 已修复并部署 main（卷纲/章纲 prompt 主线硬约束，R-CF3）。
+> - ✅ **CF-1 本地启动重定向** — 代码侧已修并部署 main（index.html localhost 注销遗留 SW + 清 Cache Storage，绝不碰 IndexedDB/localStorage；vite `strictPort`；`启动.bat` 端口占用检测）。**bat/exe/SW 在真实 Windows 的端到端验证需用户侧完成**。
+> - ✅ **CF-5 灵感反推边界提示** — 已修复并部署 main（输入区适用边界提示 + 超长非阻断警告）。
+> - ✅ **CF-7 分发引导** — 已修复并部署 main（README「Windows 一键启动·小白路径」+ bat 诊断）。
+> - ✅ **CF-4 主题可读性** — Codex 本批次已做，在 `codex/community-theme-tips` 分支（随该分支合并 main 生效）。
+> - ✅ **CF-6 伏笔边界说明** — 显示错位半边由 `d7a252f`(Codex)+`ca61d0f`(Claude 复审修复) 覆盖；作用边界 Tips `0563763` 已加，在 `codex/community-theme-tips` 分支。
+> **备注**：CF-1/2/3/5/7 已在 `origin/main`；CF-4/6 待 codex 分支合并 main。原始批次定位见下方各条。
 > **重要约束**：① 不改用户正文数据；② 涉及 AI 读写继续走 `CONTEXT_SOURCES / FIELD_REGISTRY / ADOPTION_SCHEMA / adopt()`；③ Windows 启动修复必须覆盖「源码 ZIP + 启动.bat」和「Release Portable + StoryForge.exe」两条路径；④ 主题修复必须按整体色彩系统处理，不能只补单个按钮。
 
 ## 附图索引

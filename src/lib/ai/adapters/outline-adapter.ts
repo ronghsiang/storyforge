@@ -64,6 +64,10 @@ export function buildVolumeOutlinePrompt(
   }, normalizedOptions)
 
   const constraints: string[] = ['【本次卷纲生成硬约束】']
+  // CF-3：故事主线/核心非空时，强制以主线为骨架，避免自动卷纲偏离用户已填主线。
+  if (storyCoreContext.trim()) {
+    constraints.push('【主线一致性·硬约束】必须严格以上文「故事核心 / 主线」为骨架展开：每一卷的 summary 都要明确说明它推进了主线的哪一阶段；禁止另起新主线、禁止与已填主线冲突，不得把故事核心当作可有可无的参考。')
+  }
   if (request?.existingVolumesContext) {
     constraints.push(request.existingVolumesContext)
     constraints.push(request.targetVolumeTitle
@@ -105,7 +109,11 @@ export function buildChapterOutlinePrompt(
     worldRulesContext: worldRulesContext || '',
     userHint,
   }, options)
-  return messages
+  // CF-3：章纲必须服从本卷 summary 所承载的主线方向，不得另起支线压过主线。
+  return appendUserConstraint(
+    messages,
+    '【主线一致性·硬约束】本卷大纲已承载故事主线，章纲必须服从本卷 summary 的主线方向：每章 summary 说明它推进了本卷/主线的哪一步；可以有支线，但不得另起或让支线压过主线。',
+  )
 }
 
 /** 补全一个已存在的空章节章纲，不重建整卷。 */

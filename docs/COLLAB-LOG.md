@@ -67,3 +67,14 @@
 2. 门控是「除本地外都注册」（denylist）。若有人用局域网 IP / `0.0.0.0` 自托管，仍会注册 SW。绝大多数本地用户走 `localhost:1111`，不影响；如在意可改成「仅线上已知域名注册」的 allowlist。
 
 👉 球在作者 + Codex：CF-13 修复我判定**可合**。`codex/community-feedback-20260702` 整支（现含 CF-13）全绿、干净 FF 叠 `main`，由作者决定是否让 Codex 串行合并部署。之后 Codex 可开 CF-9C 实现分支。
+
+### [2026-07-02] Claude · DECISION · 已部署 `main` → `7459b7a`
+
+作者授权后由 Claude 执行本轮合并部署（破例由审查方推，已确认全绿）：
+- 期间 `origin/main` 前进了一条无关提交 `94a89a9 chore(traffic)`；按 §5 纪律先把批次 **rebase 到最新 origin/main**（13 提交零冲突），复跑全套闸门（tsc / vitest 344 / build / architecture / 42 表 / ai-manual）全绿。
+- **FF 合并 → 推送 `main`（`94a89a9..7459b7a`），已触发 Vercel 部署**；本地 feature 分支已删除。
+- 本轮批次（CF-1/2/4/5/6/9 底层 + 两小修 + CF-9C 方案 + **CF-13 本地关 SW**）**全部上线**。working tree 干净，`main` 与 `origin/main` 0 ahead / 0 behind。
+
+⚠️ 顺带发现：本地分支 **`codex/opencode-provider`（本地 `62e02ee`）与 `origin/codex/opencode-provider`（`2b13808f`）分叉**。这是你的独立 feature、与本轮无关，Claude **未触碰**（避免 clobber 远端或丢你本地提交）。请你自行核对该分支保留哪一头。
+
+👉 球在 Codex：① 知悉本轮已部署；② 核对/收敛 `codex/opencode-provider` 分叉；③ 可开 CF-9C 实现分支（做完在此写 REPORT）。

@@ -78,3 +78,23 @@
 ⚠️ 顺带发现：本地分支 **`codex/opencode-provider`（本地 `62e02ee`）与 `origin/codex/opencode-provider`（`2b13808f`）分叉**。这是你的独立 feature、与本轮无关，Claude **未触碰**（避免 clobber 远端或丢你本地提交）。请你自行核对该分支保留哪一头。
 
 👉 球在 Codex：① 知悉本轮已部署；② 核对/收敛 `codex/opencode-provider` 分叉；③ 可开 CF-9C 实现分支（做完在此写 REPORT）。
+
+### [2026-07-03] Codex · REPORT · Release `v3.7.3`
+
+作者确认需要立即重新发版打包后，我已从已部署的 `main` 发出 `v3.7.3`，用于补发包含 CF-13 本地 Service Worker / `.bat` / `.exe` 重定向修复的 Windows 包。
+
+处理结果：
+- `main` 已新增版本号提交：`2a5f105 chore(release): bump version to v3.7.3`。
+- 已触发 `Release Packages` workflow：run `28639991706`，执行成功。
+- GitHub Release `v3.7.3` 已发布为 Latest，上传资产包含：
+  - `StoryForge-Windows-v3.7.3.exe`
+  - `StoryForge-Windows-Portable-v3.7.3.zip`
+  - `SHA256SUMS.txt`
+
+验证：
+- 发版前本地跑过 `npm run build` 与 `npx tsc --noEmit`，均通过。
+- 发版后已通过 `gh release view v3.7.3` 确认 exe / portable zip / SHA256 三个资产均已上传。
+
+备注：本次只做发版补包，不包含尚在 `codex/longcat-provider-and-setting-feedback` 上等待审查的 LongCat / CF-14 改动。
+
+👉 球在 Claude：无需审代码变更；仅知悉 `v3.7.3` Windows 包已补发。LongCat 分支仍待回到该分支后继续走审查流程。

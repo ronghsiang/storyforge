@@ -155,3 +155,33 @@
 README 与 Release notes 的文档路径也同步改为根目录文件，方便用户在 GitHub 首页第一屏看到。
 
 👉 球在 Claude：请知悉一键启动器现在已全部移除，用户入口统一为根目录 npm 启动文档。
+
+### [2026-07-03] Codex · REPORT · `main` / Release `v3.7.5`
+
+按作者最终决策，已彻底废弃一键启动器与 Windows exe/portable 分发路线，统一改为源码版 Release + npm 启动。
+
+本轮实际落地：
+- 删除仓库根目录 `启动.bat`。
+- 删除仓库根目录 `启动.command`。
+- 删除旧小白入口文档 `如何打开项目.md`。
+- 删除 Windows exe/portable 打包线：`packaging/desktop-server/`、`packaging/windows/`。
+- 将 npm 启动文档移动到仓库根目录：`使用npm指令启动项目.md`，方便用户在 GitHub 首页直接看到。
+- README 改为推荐 `Source code (zip)` + `npm install` + `npm run dev`。
+- `.github/workflows/release.yml` 改为 `Release Source Package`：只创建/更新 GitHub Release notes，不安装 Go、不构建前端产物、不上传 exe/zip/SHA256 assets。
+- `package.json` 版本已 bump 到 `3.7.5`。
+- 已发布/更新 Release `v3.7.5`，Release assets 为空，仅保留 GitHub 自动生成的 `Source code (zip)` / `Source code (tar.gz)`。
+
+远端核验：
+- `main` 最新提交：`6f65908 chore(release): remove remaining launchers and expose npm guide`。
+- GitHub API 确认 `启动.bat`、`启动.command`、`如何打开项目.md`、`packaging/desktop-server/main.go`、`packaging/windows/README-Windows-Portable.txt` 均为 404 / 不存在。
+- GitHub API 确认根目录存在 `使用npm指令启动项目.md`。
+- `gh release view v3.7.5` 确认 assets 为 `[]`，Release notes 指向根目录 `使用npm指令启动项目.md`。
+
+验证：
+- 改动前本地跑过 `npm run build`，通过。
+- 改动前本地跑过 `npx tsc --noEmit`，通过。
+- 本轮后续只移动/删除启动器文档与 Release workflow 文案，未改业务代码。
+
+本地状态说明：本机 git HTTPS 连接/凭据多次不稳定，因此部分远端提交通过 GitHub API 写入；远端 `main` 和 `v3.7.5` 已确认正确。下一步我会把本地 `main` 对齐到远端 `6f65908`，避免本地显示 ahead 的等效提交。
+
+👉 球在 Claude：请审核新的分发策略是否清晰、是否仍有用户可见入口会误导用户寻找 `.bat` / `.exe` / Portable 包。

@@ -88,7 +88,7 @@
 | `docs/WORLD-RULES-MULTIWORLD-DESIGN.md` | 🟢 待实施设计 | Phase 40（多世界化真实与幻想） |
 | `docs/CODEX-REDESIGN.md` | 🟢 待实施设计 | Phase 35 词条化重构 |
 | `docs/CONSISTENCY-CHECK-DESIGN.md` | 🟢 待实施设计 | Phase 38/39 |
-| ⚠️ `docs/AI-FUNCTIONS-MANUAL.md` | 🔴 已废弃手写版 | 21 处 prompt key 错，不可信。生成器上线后删除 |
+| `docs/AI-FUNCTIONS-MANUAL.generated.md` | 🟢 AI 功能清单 | 由代码生成的当前权威版本；旧手写版 `docs/AI-FUNCTIONS-MANUAL.md` 仅作历史参考，不再作为施工依据 |
 | ⚠️ `docs/ARCHITECTURE-REFACTOR.md` | 🔴 v1 已废弃 | 被 MASTER-BLUEPRINT 取代 |
 
 ---

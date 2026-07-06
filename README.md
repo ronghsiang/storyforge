@@ -16,7 +16,7 @@
 ![PWA](https://img.shields.io/badge/PWA-Offline-green)
 ![License](https://img.shields.io/badge/License-TBD-lightgrey)
 
-> **AI 辅助小说创作工作台** — 纯前端、本地优先、11 家 AI 厂商任选。  
+> **AI 辅助小说创作工作台** — 纯前端、本地优先、十余家 AI 厂商任选。
 > 提示词全可见、可调、可保存 — 不做黑箱，让作者掌控每一段 AI 输出。
 
 ```
@@ -30,7 +30,7 @@ GitHub: https://github.com/yuanbw2025/storyforge
 **StoryForge** is a privacy-first, local-first browser-based AI writing studio for long-form fiction.
 
 - **Local-first by default** — your manuscript lives in your browser's IndexedDB. If you enable AI, cloud backup, or a custom proxy/base URL, relevant content is sent to the third-party service you configured.
-- **Bring your own AI** — works with 11 OpenAI-compatible providers; you supply the key.
+- **Bring your own AI** — works with many OpenAI-compatible providers; you supply the key.
 - **No black box** — every prompt is visible, editable, and savable. You control every AI output.
 - **Built for series-scale work** — multiworld settings, a three-layer memory system, a codex/worldbuilding registry, consistency checking, and reverse-inference from fragments.
 
@@ -129,7 +129,7 @@ graph TB
 
     subgraph AI 层
         Engine[提示词渲染引擎]
-        Adapters[11 家厂商适配器]
+        Adapters[十余家厂商适配器]
         SSE[SSE 流式输出]
     end
 
@@ -256,7 +256,7 @@ sequenceDiagram
 | **版本历史** | 自动快照（5 分钟/保留 20 条）+ 手动快照（永久）· 时间线视图 · 恢复创建新项目（双保险）|
 | **导入** | 百万字级分块导入（详见 [导入系统](#-导入系统)）|
 | **导出** | 6 种方式（详见 [导出系统](#-导出系统)）|
-| **设置** | 11 家 AI 厂商配置 + 5 主题切换 |
+| **设置** | 十余家 AI 厂商配置 + 5 主题切换 |
 
 ---
 
@@ -483,7 +483,7 @@ graph LR
 
 ## 🤖 AI 集成
 
-### 11 家厂商统一接入
+### 十余家厂商统一接入
 
 | 分类 | 厂商 |
 |---|---|
@@ -576,7 +576,7 @@ npm run dev
 | 新手：用工作流跟着 AI 学结构 | 不愿理解提示词原理 |
 | 老手：导入自己的 prompt 模板，配题材包 | 需要多人协作/云端同步 |
 | 多题材作者：30 秒切风格 | |
-| 拒绝 vendor lock-in：11 厂商任选 + 本地存储 | |
+| 拒绝 vendor lock-in：十余家厂商任选 + 本地存储 | |
 
 ---
 

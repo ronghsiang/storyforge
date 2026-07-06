@@ -4,7 +4,7 @@
 > 📐 **施工权威**: [`docs/MASTER-BLUEPRINT.md`](MASTER-BLUEPRINT.md) — 重构 Phase 0/1/2/3 完整流程
 > 🤝 **双 Agent 协作契约**: [`docs/COLLAB-WORKFLOW.md`](COLLAB-WORKFLOW.md) — Codex 开发 / Claude 审查的分工·分支·合并纪律。**Codex 请过目并在文末 §7 确认。**
 >
-> **最后更新**: 2026-07-02（追加社区反馈待开发批次：角色弧光自动填充、英文混入、卷纲依据、本地模型配置、中文输入粘连、流派 ID 约束、多模型任务路由、本地模型列表刷新等；施工权威见 MASTER-BLUEPRINT）
+> **最后更新**: 2026-07-03（追加社区反馈待开发批次：版本号显示滞后、题材包卷纲参数缺失、JSON 导入后卡加载、角色关系保存反馈异常、长文本编辑滚动失焦、世界起源/力量体系上下文不贯通、上下文窗口配置保存感知异常、章节正文采纳后列表/导出仍为空等；施工权威见 MASTER-BLUEPRINT）
 > **说明**: 本文档是唯一的功能规划文档。旧文档已归档至 `docs/archive/`。
 > **结构**: 上半部分「已完成」，下半部分「待开发」按优先级排列。完成后从待办挪到已完成区。
 > **重要**: 任何"加功能 / 修 bug"前，先过 CLAUDE.md 的「四问」。**头疼医头 = 永远拒绝**。
@@ -210,6 +210,282 @@
 > 本 ROADMAP 中所有"架构地基级"任务均已纳入 MASTER-BLUEPRINT 的 Phase 0/1/2/3，本节保留索引但不再独立维护。
 
 ---
+
+# ═══ 社区反馈批次（2026-07-03 · 版本显示 / 卷纲参数 / JSON 导入 / 角色关系 / 长文本编辑 / 世界观贯通 / AI 设置 / 章节保存导出）═══
+
+> **来源**：2026-07-03 群内用户截图 + 作者转述，附件包括 `codex-clipboard-b3687bb2-0d9a-4beb-adde-213d2f37dad2.png`、`codex-clipboard-4a5181b3-4335-495f-9390-f644ea6556a6.png`、`codex-clipboard-8b917123-b49d-4caf-94e2-39e39ef694f8.png`、`codex-clipboard-dc3b6e65-2d35-4181-a529-b520e24e5390.png`、`codex-clipboard-7959e6ea-c573-4b89-8c9e-6d161f7647bb.png`、`codex-clipboard-fb70d9d6-0bd1-4b2b-a43f-788ecadbfc2b.png`、`codex-clipboard-4cac1864-cb65-4be0-9c5f-31de146bfbed.png`、`codex-clipboard-eae940bd-1895-45df-ad23-197db9cb6f1e.png`、`codex-clipboard-7230294e-bcb8-499f-ad27-72736fc491a0.png`、`codex-clipboard-70b4fdf8-4643-457a-9d5f-506a8974de9c.png`、`codex-clipboard-b39bfa96-cd1e-45a9-b5bd-6f3020249bae.png`、`codex-clipboard-22a99a77-8589-469f-9636-43a2a604b406.png`、`codex-clipboard-5329b449-65da-462d-afb5-a2d1dfa0ce0f.png`。
+> **当前状态**：Codex 已只读定位，尚未实现修复。后续应从最新 `main` 单开 hotfix 分支处理，避免混入 `codex/opencode-provider` 等待审功能分支。
+> **铁律复述**：本批前三项主要是 UI / 状态同步 / prompt seed 修复；若改 AI 生成链路，必须继续通过 prompt seed / adapter / `assembleContext()` 的既有入口，不允许绕过三注册表。角色关系若涉及写库，需确认 `PROJECT_TABLES` 与关系表生命周期不被破坏。
+
+## 🔴 CF-20260703-1 — UI 版本号仍显示 `v3.7.2`，与 Release `v3.7.5` 不一致
+
+- **现象**：用户下载安装/打开 v3.7.5 后，左侧底部或首页版本徽标仍显示 `v3.7.2`，导致用户误以为自己没有更新成功。
+- **已确认代码定位**：
+  - `package.json` 当前版本是 `3.7.5`。
+  - `src/lib/version.ts` 仍硬编码 `export const APP_VERSION = 'v3.7.2'`。
+  - `src/pages/HomePage.tsx` 与 `src/components/layout/Sidebar.tsx` 都读取 `APP_VERSION` 展示版本号。
+- **根因判断**：发版流程 bump 了 `package.json`，但 UI 版本号是另一份手写常量；没有自动同步，也没有测试/脚本检查二者一致。
+- **解决方案**：
+  1. 立即把 `src/lib/version.ts` 更新为当前 Release 版本，修复用户可见误导。
+  2. 增加版本一致性检查：`APP_VERSION` 必须等于 `v${package.json.version}`，可放入 architecture check 或独立回归测试。
+  3. 后续优化为构建时注入版本号，例如 Vite `define` 读取 `package.json.version`，减少手写双源。
+- **验收标准**：
+  - v3.7.5 构建产物首页与侧边栏显示 `v3.7.5`。
+  - 版本号一致性测试失败时能阻止再次出现 `package.json` 与 UI 常量不同步。
+- **优先级**：🔴 高（用户更新判断直接受影响，且修复小）。
+
+## 🔴 CF-20260703-2 — 非内置题材包的“卷级大纲生成”参数区消失
+
+- **现象**：用户反馈“生成卷大纲的参数调整怎么不见了”。截图显示切换到某些题材包卷纲模板后，调参区没有“整体节奏 / 建议卷数”等参数；用户进一步确认“只有内置-卷级大纲生成才有这些东西，其他大纲生成包都是这样的”。
+- **已确认代码定位**：
+  - 调参浮窗 `src/components/shared/PromptRunPanel.tsx` 只读取当前激活模板的 `tpl.parameters`。
+  - 内置 `outline.volume` 模板在 `src/lib/ai/prompt-seeds.ts` 里定义了 `pace` 与 `volumeCount` 参数。
+  - 多个题材包 `outline.volume` 模板在 `src/lib/ai/prompt-seeds-genre-packs.ts` / `src/lib/ai/prompt-seeds-genre-packs-extended.ts` 缺少 `parameters`；扩展玄幻包甚至明确写了 `parameters: []`。
+  - 部分题材包卷纲模板变量名与运行器传入不一致，例如模板使用 `storySeed / protagonist / totalChapters`，而 `buildVolumeOutlinePrompt()` 传入的是 `storyCore / targetWordCount / estimatedVolumes / characterContext` 等。
+- **根因判断**：不是调参面板丢失，而是题材包模板 seed 没有声明卷纲参数，且个别模板变量与 adapter 契约漂移。`PromptRunPanel` 如实显示“无参数”，用户看起来就是功能消失。
+- **解决方案**：
+  1. 为所有 `moduleKey: 'outline.volume'` 的系统题材包补齐统一参数，至少包含 `pace` 与 `volumeCount`；如题材包需要额外参数，再追加题材专属项。
+  2. 统一卷纲模板变量契约：题材包应使用 `projectName / genres / targetWordCount / estimatedVolumes / worldContext / storyCore / characterContext / worldRulesContext / existingVolumesContext / userHint` 等 adapter 实际传入字段。
+  3. 更新 prompt store seed 刷新逻辑后，老用户已有 system 模板会按 name 刷新内容与 `parameters`，但必须保留用户 `isActive` 选择。
+  4. 增加回归测试：所有系统 `outline.volume` 模板必须至少有一个参数；模板变量不得引用 adapter 不传的字段；渲染后不得出现空的关键占位。
+- **验收标准**：
+  - 选择任意题材包的卷纲模板，生成面板都能看到节奏/卷数参数。
+  - 用户调 `volumeCount=30` 时，最终 prompt 明确要求目标总卷数或合理卷数约束，不再因模板差异失效。
+  - 老用户打开应用后，已有系统题材包模板参数被刷新补齐；用户自建模板不被覆盖。
+- **优先级**：🔴 高（核心大纲功能在多数题材包下体验断裂）。
+
+## 🔴 CF-20260703-3 — 工作区内导入 JSON 后永久卡“加载中”，刷新后项目正常
+
+- **现象**：用户在「数据管理 → 导出 / 导入 → 导入 JSON」点击导入后，页面一直停在“加载中”。刷新页面后恢复正常，且数据看起来已经成功导入。
+- **已确认代码定位**：
+  - `src/components/data/DataManagementPanel.tsx` 的 `handleFileSelected()` 导入成功后调用 `onImported?.(newId)`。
+  - `src/pages/WorkspacePage.tsx` 传入的回调是 `navigate(`/workspace/${newId}`)`。
+  - `WorkspacePage` 中 `loadProject(newId)` 只设置 `currentProjectId`，不会把新项目补进 `projects` 列表。
+  - `project` 由 `projects.find(p => p.id === currentProjectId)` 派生；如果列表里没有刚导入的新项目，则 `project` 一直是 `null`，页面显示“加载中...”。
+  - 当前只在 `projects.length === 0` 时补 `loadProjects()`；工作区内导入时列表通常不为空，但缺少新项目，因此不会触发补加载。
+- **根因判断**：导入事务本身大概率成功；卡住是前端项目列表状态没有同步。刷新后重新加载项目列表，所以导入项目出现并正常打开。
+- **解决方案**：
+  1. 在 `useProjectStore.loadProject(id)` 中，将查到的项目 upsert 到 `projects` 列表，保证直链、导入跳转、跨页跳转都能拿到当前项目。
+  2. 或在 `WorkspacePage` 中发现 `projects` 不含 `currentProjectId` 时强制 `loadProjects()`；Codex 倾向 store 层修，收益更通用。
+  3. 导入成功后先展示明确成功 toast，再跳转新项目；如果跳转加载失败，应显示错误和返回首页入口，而不是无限“加载中”。
+  4. 增加回归测试覆盖“已有项目列表非空，但跳转到刚导入的新项目”场景。
+- **验收标准**：
+  - 从某个项目的工作区导入 JSON 后，能自动跳到新项目并显示项目内容，不需要刷新。
+  - `projects` 原本非空且不包含新项目时，`loadProject(newId)` 后 store 内能找到该项目。
+  - 导入失败仍显示错误，不产生半成功卡死 UI。
+- **优先级**：🔴 高（数据恢复关键路径；虽然数据未丢，但用户会误判导入失败）。
+
+## 🟠 CF-20260703-4 — 角色关系“无法保存”/保存反馈不明确，疑似项目过滤与交互反馈问题
+
+- **现象**：用户截图显示在「角色关系」页面添加了主角与 NPC 的关系，随后反馈“这个角色关系无法保存”。截图中界面停留在关系图/关系列表顶部，用户看不到明确的“保存成功”反馈或保存按钮。
+- **已确认代码观察**：
+  - `src/components/relations/CharacterRelationPanel.tsx` 没有“保存”按钮；新增、下拉选择、标签输入、描述输入都通过 `addRelation()` / `updateRelation()` 在 `onChange` 时立即写入 IndexedDB。
+  - `src/stores/character-relation.ts` 的 `addRelation()` / `updateRelation()` 写库后直接更新内存状态，但没有 toast、失败回滚或错误提示。
+  - `handleAdd()` 默认取 `characters[0]` 与 `characters[1]`，没有先按当前 `projectId` 过滤；`RelationGraph` 也直接使用全局 `characters` / `relations` store。理论上如果 store 残留或跨项目切换异常，可能出现写入了当前项目关系但端点角色不是当前项目角色，表现为“保存了但看不对 / 看不到”。
+  - `projectRelations = relations.filter(r => r.projectId === projectId)` 只过滤列表数据；关系图组件内部没有接收 `projectId`，依赖 store 已经只加载当前项目。
+- **疑似根因**：
+  1. **交互误导**：页面采用自动保存，但没有“已保存”提示；用户输入后不知道是否落库，尤其在图视图下看不到列表编辑细节。
+  2. **缺少错误反馈**：IndexedDB 写入失败、外键角色缺失、关系端点异常时，UI 不提示。
+  3. **项目过滤不严**：新增关系和关系图没有在组件内二次按 `projectId` 过滤角色/关系，依赖全局 store 状态正确；一旦导入/切项目/加载竞态导致 store 混入旧数据，会出现关系保存到错误端点或图上不显示。
+- **解决方案**：
+  1. 明确交互模型：若继续自动保存，则在新增/更新/删除后显示轻量 toast 或行内“已保存”；若改为手动保存，则增加“编辑草稿 → 保存/取消”状态，避免用户误解。
+  2. 在 `CharacterRelationPanel` 内计算 `projectCharacters = characters.filter(c => c.projectId === projectId)`，新增、下拉、AI 导入匹配、空态判断全部使用当前项目角色。
+  3. `RelationGraph` 改为接收当前项目的 `characters` 与 `relations` props，或接收 `projectId` 后内部过滤，禁止直接绘制全局 store 全量。
+  4. `character-relation` store 的写操作增加 try/catch 或让组件捕获错误，并显示“保存失败：原因”；失败时不要乐观更新成已保存状态。
+  5. 写入前校验 `fromCharacterId / toCharacterId` 都属于当前项目且不能缺失；非法关系不入库，并给用户提示。
+- **验收标准**：
+  - 在有两个当前项目角色时点击“添加关系”，刷新页面后关系仍存在。
+  - 编辑关系类型、方向、标签、描述后无需刷新即可看到“已保存”反馈；刷新后值仍保持。
+  - 切换项目或从导入项目进入关系页，不会使用旧项目角色创建关系。
+  - IndexedDB 写入失败或角色端点不存在时，UI 明确提示保存失败。
+  - 关系图只显示当前项目角色与当前项目关系。
+- **待验证问题**：
+  - 需要用户补充浏览器控制台错误 / 复现步骤，确认是否存在真实写库异常，而不仅是自动保存无反馈。
+  - 需本地构造“导入后跳转新项目 + 进入角色关系新增关系”的复现场景，排查是否与 CF-20260703-3 的项目列表状态不同步有关。
+- **优先级**：🟠 中高（角色关系是已上线功能，用户认为无法保存；需先补反馈与项目过滤，再看是否还有底层写库错误）。
+
+## 🟠 CF-20260703-5 — 抽取出的角色关系未反写到角色词条“人物关系”字段
+
+- **现象**：用户指出：系统从正文中抽取角色关系后，预期不仅应保存在「角色关系 / 关系网」里，也应自动出现在单个角色词条下的“人物关系”栏。但当前角色详情中的“人物关系”字段仍显示“点击填写人物关系”，不会自动出现抽取结果。
+- **用户预期逻辑**：
+  - 从正文 / 大纲中抽取到“甲与乙是师徒 / 宿敌 / 同盟”等关系后，系统应保存一条结构化关系到 `characterRelations`。
+  - 同时，甲的角色卡 `relationships` 应补充“与乙：师徒 / 宿敌 / 同盟……”的自然语言描述；乙的角色卡也应有相应反向描述。
+  - 后续章节正文生成读取 `characters` 上下文时，也能读到角色卡里的人物关系，而不只依赖单独的关系网。
+- **已确认代码定位**：
+  - `src/components/relations/CharacterRelationPanel.tsx` 的 `handleAcceptExtracted()` 只调用 `addRelation()`，写入 `characterRelations` 表。
+  - `src/stores/character-relation.ts` 的 `addRelation()` 也只维护 `characterRelations`，不会更新 `characters.relationships`。
+  - `src/lib/registry/field-registry.ts` 已登记 `longtext('characters', 'relationships', ['关系'])`，说明角色卡人物关系字段允许通过 `adopt({ target:'characters' })` 写回。
+  - `src/lib/ai/context-builder.ts` 会把 `characters.relationships` 注入角色上下文；因此该字段为空会影响后续正文/大纲生成对人物关系的感知。
+- **根因判断**：当前“结构化关系表”和“角色卡文字字段”是两套并行数据。关系抽取只落 `characterRelations`，没有反写/汇总到 `characters.relationships`，所以用户在角色词条里看不到抽取结果；后续只读 `characters` 的 AI 链路也可能漏掉关系信息。
+- **解决方案**：
+  1. 在接受 AI 抽取关系后，除写入 `characterRelations` 外，生成双方角色卡的关系摘要 patch。
+  2. 写回角色卡必须走规范入口：优先用 `adopt({ target:'characters', recordId, mode:'merge-diffs', data:{ relationships } })`，或封装在角色 store 的规范方法中；禁止在组件里裸 `db.characters.update()`。
+  3. 合并策略不能粗暴覆盖用户已有 `relationships`：应按“对方角色名 + 关系类型/标签”去重追加，保留用户手写内容。
+  4. 双向/单向关系要生成不同文案：
+     - 双向：甲写“与乙：朋友/同盟……”，乙写“与甲：朋友/同盟……”。
+     - 单向：甲写“对乙：保护/敌视/追随……”，乙可写“被甲保护/敌视/追随……”或根据类型生成反向描述。
+  5. 手动新增/编辑关系时也应同步角色卡，至少在新增和接受 AI 抽取时同步；编辑已有关系后是否重写旧摘要需设计去重/替换策略，避免残留旧描述。
+  6. 若用户删除关系，第一版可不自动删除角色卡文字，避免误删用户手写内容；若要支持删除同步，应只删除带系统标记/可识别来源的那一段。
+- **推荐第一阶段范围**：
+  1. 覆盖 `handleAcceptExtracted()` 和“添加关系”后的自动追加。
+  2. 不做删除同步，不覆盖手写内容。
+  3. 文本格式采用稳定可去重格式，例如每行 `- 与【角色名】：关系标签。描述`。
+  4. 为后续可维护性抽出纯函数：`buildRelationshipFieldPatch(character, relations, allCharacters)`，单测覆盖去重、双向、单向、已有手写内容。
+- **验收标准**：
+  - AI 抽取并导入“甲-乙：师徒”后，`characterRelations` 新增关系，同时甲/乙角色详情“人物关系”栏都出现对应描述。
+  - 用户已有 `relationships` 手写内容不会被覆盖。
+  - 同一关系重复抽取/重复导入不会在角色卡里追加多遍。
+  - 后续 `buildCharacterContext()` 输出包含新写入的人物关系文本。
+  - 写回路径有测试证明走 `FIELD_REGISTRY/adopt` 或规范 store 方法，未绕过注册表。
+- **风险 / 待决策**：
+  - `characters.relationships` 是自然语言长文本，长期与 `characterRelations` 可能发生不一致。后续可考虑在角色详情中直接展示“结构化关系自动摘要 + 用户手写补充”两层，而不是永久复制一份文本。
+  - 关系编辑 / 删除是否反向同步角色卡需谨慎，避免删掉用户手工润色后的关系描述。
+- **优先级**：🟠 中高（符合作者原始产品逻辑；能让关系抽取结果进入角色卡与后续生成上下文）。
+
+## 🔴 CF-20260703-6 — 角色设计完整维度手动输入会自动重复前文
+
+- **现象**：用户反馈在「角色设计」里手动填写完整维度字段时，打字会自动重复输入前一次以及之前所有文字；复制粘贴同样内容没有问题；“简介”字段可以正常打字。
+- **已确认代码定位**：
+  - “简介”字段走 `src/components/shared/InlineEdit.tsx` 的 `InlineInput`，只在 blur / Enter 时提交一次。
+  - 角色完整维度字段走 `src/components/character/CharacterDimensionFields.tsx` 的 `CTextarea`，每次 `onChange` 都调用父级 `updateCharacter(char.id, patch)`。
+  - `src/stores/character.ts` 的 `updateCharacter()` 是异步写 IndexedDB 后再更新 Zustand；快速连续输入时，多次异步写入可能乱序返回。
+  - `CTextarea` 虽然有 IME 组合输入保护，但外部 `character[d.key]` 回流变化时会同步本地值；如果较旧的异步更新后返回，会把旧值灌回正在编辑的 textarea。
+- **根因判断**：
+  - 这不是普通复制粘贴问题，也不完全是 CF-20260702-6 那种原生 input 未处理 composition 的问题。
+  - 更可能是“长文本字段逐键自动保存 + 异步写库乱序 + 外部值回灌”组合导致：旧值覆盖新输入，用户继续打字时输入法把旧内容和新内容拼在一起，表现为自动重复前文。
+  - “简介能打字”是关键旁证：简介不逐键写库，而是本地 draft 编辑完再提交，所以不会被异步回流打断。
+- **解决方案**：
+  1. 角色完整维度字段改为本地 draft 编辑，不要每个按键都立即写库；可采用 blur 保存 / 防抖保存 / 显式保存。
+  2. 若保留自动保存，必须加字段级 debounce 和版本序号：只有最新一次保存结果允许回写 UI，旧 promise 返回不能覆盖新 draft。
+  3. `CTextarea` 增加“编辑中忽略外部旧值回灌”的保护：focus/composing/dirty 状态下，不用外部 value 覆盖 local draft；失焦或保存成功后再同步。
+  4. 对角色完整维度建议复用 `InlineTextarea` 的 draft 提交模型，或新增 `DraftTextarea`，统一用于 `CharacterDimensionFields` 和“人物关系”。
+  5. Store 层 `updateCharacter()` 可补充 per-record/per-field sequence guard，避免乱序异步更新把旧 patch 写回内存；但 UI 本地 draft 仍应作为第一道防线。
+- **验收标准**：
+  - 在角色完整维度任意长文本字段中连续输入中文，不会重复前一次或更早文字。
+  - 快速输入、输入法候选、删除、换行都能保持光标与内容稳定。
+  - 复制粘贴仍正常。
+  - 失焦/防抖保存后刷新页面，字段内容正确落库。
+  - 回归测试或组件测试覆盖“连续触发多次 updateCharacter，旧 promise 后返回时不能覆盖新值”。
+- **优先级**：🔴 高（角色设计核心编辑体验；用户手写设定时会直接损坏输入内容）。
+
+## 🟠 CF-20260703-7 — 长文本编辑时输入框内滚动被页面滚动替代，正在编辑内容被遮挡
+
+- **现象**：用户反馈“编辑内容的时候，输入框内的滑动会被页面滑动替代，导致编辑内容被遮挡”。追问后确认：当长文本输入框内容很多、光标/编辑位置接近页面底部时，用户想在输入框内部滚动，结果外层页面滚动，当前正在编辑的位置被页面底部或视口遮住。
+- **截图定位**：
+  - 反馈截图展示在世界观/人文等长文本编辑区域内，文本内容很长，右侧页面滚动条处于中下段。
+  - 相关通用组件包括 `src/components/shared/InlineEdit.tsx` 的 `InlineTextarea`、`src/components/shared/CompositionInput.tsx` 的 `CTextarea`、`src/components/shared/AutoResizeTextarea.tsx`，以及大量面板外层 `overflow-y-auto` 容器。
+  - `src/pages/WorkspacePage.tsx` 主内容区本身是 `flex-1 overflow-y-auto`，内层长文本编辑区与页面滚动形成嵌套滚动。
+- **根因判断**：
+  - `InlineTextarea` 进入编辑态后会把 textarea 高度设置为 `scrollHeight`，并使用 `resize-none`，没有 `max-height` 与稳定内部滚动；内容越长，输入框越高，最终依赖外层页面滚动。
+  - `CTextarea` 只处理 IME 组合输入，不处理滚动边界；多数调用点也没有统一的 `max-height / overflow-y-auto`。
+  - `AutoResizeTextarea` 虽然有 `maxRows` 和 `overflowY = auto`，但没有处理 wheel/touch 事件冒泡；当 textarea 滚到顶部/底部或浏览器滚动链触发时，外层页面会继续滚动。
+  - 这属于“长文本编辑器缺少统一滚动边界与滚动链控制”的通用体验 bug，不是单个面板内容错位。
+- **解决方案**：
+  1. 建一个统一长文本编辑组件或增强现有三类 textarea：超过 `maxRows / max-height` 后固定高度并在输入框内滚动，不能无限撑高页面。
+  2. 在可滚动 textarea 上加滚动边界处理：`onWheel` / `onTouchMove` 只在 textarea 能沿当前方向继续滚动时阻止事件冒泡；到达边界时允许页面滚动，避免死锁。
+  3. 为 `InlineTextarea` 补齐 `minRows / maxRows / maxHeight` 能力，世界观、角色、设定词条等长文本字段默认使用内部滚动模式。
+  4. 编辑态聚焦时保证光标所在行可见：必要时用 `scrollIntoView({ block: 'nearest' })` 或调整外层容器底部 padding，避免底部按钮/视口遮挡当前编辑行。
+  5. 保留中文输入法组合输入保护，不得回退 CF-20260702-6 / CF-20260703-6 已定位的 IME 问题。
+- **验收标准**：
+  - 在任意世界观/角色长文本字段粘贴 2000 字后，输入框高度不无限撑开页面，内部出现可用滚动条。
+  - 鼠标滚轮或触控板在 textarea 内滚动时，优先滚动 textarea；外层页面不会抢走滚动导致光标位置被遮挡。
+  - 当 textarea 已滚到顶/底后，页面仍可继续滚动，不造成滚动卡死。
+  - 中文输入、换行、删除、复制粘贴、失焦保存均正常。
+  - 至少覆盖 `InlineTextarea` 和 `CTextarea` 两条路径；若保留 `AutoResizeTextarea`，需验证其滚动链行为一致。
+- **优先级**：🟠 中高（高频编辑体验问题；不直接丢数据，但会显著阻碍长设定维护）。
+
+## 🔴 CF-20260703-8 — 世界来源 / 力量体系 / 神明与信仰生成上下不贯通，后续模块遗忘前置设定
+
+- **现象**：用户反馈“之前设定好的内容在下一个模块并不同步，导致它会生成全新的内容”。典型例子：在「世界来源」里已经设定了几个神灵，后续生成「力量体系」时忘记这些神灵，重新生成一套无关来源/力量设定。截图明确指向同一面板内三个子模块：世界来源、力量体系、神明与信仰。
+- **已确认代码定位**：
+  - 主面板在 `src/components/worldview/WorldviewOriginPanel.tsx`，三个子页签共享 `worldviews.worldOrigin / powerHierarchy / divineDesign`。
+  - `buildCtx(excludeKey)` 会把兄弟字段拼进当前 AI 上下文，但只做局部摘要：世界来源 `slice(0, 200)`、力量体系 `slice(0, 200)`、神明规则 `slice(0, 100)`，且神明只在 `divineDesign.hasDivinity` 为 true 时注入。
+  - AI prompt 由 `src/lib/ai/adapters/worldview-adapter.ts` 的 `buildWorldviewPrompt()` 构造，目前有字段边界提示：力量体系不得改写世界来源，世界来源是上游事实。
+  - `PowerSystemPanel.tsx` 仍存在一个旧独立“力量体系”面板，使用本地 `useState` 文本区，容易和 `WorldviewOriginPanel` 内的 `worldviews.powerHierarchy` 形成概念混淆。
+- **根因判断**：
+  - 当前不是完全没读前置字段，而是读得太薄、太随意：靠 `buildCtx()` 手拼短摘要，不是正式的字段依赖契约，也不是通过 `CONTEXT_SOURCES` 声明“生成力量体系必须读取世界来源 + 神明与信仰”。
+  - 字段边界只告诉 AI “不要改写上游”，没有强制“必须引用并延续上游事实”。如果世界来源里写了神灵但 `divineDesign.hasDivinity` 未勾选，力量体系最多只能看到世界来源前 200 字；神名在 200 字之后会直接丢失。
+  - 生成结果没有“引用了哪些上游设定 / 哪些设定未被使用 / 冲突点”反馈，用户无法判断 AI 是否真正接住了前一模块。
+  - 旧独立 `PowerSystemPanel` 与新世界起源内“力量体系”并存，长期会放大用户对“力量体系到底以哪里为准”的困惑。
+- **解决方案**：
+  1. 定义世界起源三字段依赖契约：`worldOrigin` 是 `powerHierarchy` 与 `divineDesign` 的上游事实；`powerHierarchy` 生成必须读取完整或预算裁剪后的 `worldOrigin + divineDesign`；`divineDesign` 生成必须读取 `worldOrigin + powerHierarchy`。
+  2. 将该依赖接入正式上下文装配：优先新增/扩展 `CONTEXT_SOURCES` 中的 worldview 子源或字段级源，让世界观字段生成通过 `assembleContext()` 获取“当前世界的上游约束”，避免面板内 `slice()` 手拼成为事实源。
+  3. prompt 加硬约束：生成力量体系时必须列出“本次沿用的世界来源/神明事实”，力量来源、等级、晋升代价要能解释这些上游事实；若无法兼容，输出冲突与兼容方案，而不是另起炉灶。
+  4. UI 增加只读“生成依据/上游设定”折叠区，复用 CF-20260702-3 的生成依据思路，让用户在点 AI 生成前看到本次会读取哪些世界来源、神明、力量设定。
+  5. 处理旧 `PowerSystemPanel`：要么下线/隐藏旧入口，要么明确迁移到 `worldviews.powerHierarchy`，避免两套“力量体系”并存；此项必须守 `PROJECT_TABLES / FIELD_REGISTRY / CONTEXT_SOURCES`，不能裸写新表。
+  6. 对“世界来源里提到神灵但神明页签未勾选”的情况做兼容：上游约束抽取时应从 `worldOrigin` 原文识别神名/创世实体，或至少完整注入相关段落，不能只依赖 `divineDesign.hasDivinity`。
+- **验收标准**：
+  - 在世界来源写入“九位创世神/具体神名”，生成力量体系时 prompt 中可见这些上游事实，输出必须解释力量来源与这些神灵的关系。
+  - 在神明与信仰已填写时，重新生成力量体系不会创造互相冲突的新神系；若需要新增，必须说明与既有神明的关系。
+  - 生成结果展示“沿用的上游设定 / 冲突点 / 新增设定”摘要，用户能确认是否采纳。
+  - 旧独立力量体系入口不会与世界起源页签产生双源冲突。
+  - 回归测试覆盖：`buildWorldviewPrompt('力量体系', ...)` 或新 adapter 路径必须包含世界来源、神明事实与“不另起炉灶”的约束；多世界模式下读取当前 `worldGroupId`，不串世界。
+- **优先级**：🔴 高（世界观核心链路断裂；会直接导致 AI 设定前后矛盾）。
+
+## 🟠 CF-20260703-9 — AI 设置“上下文窗口”切出去后看起来未保存 / 被预设覆盖
+
+- **现象**：用户在「设置 → AI 模型配置」中填写“上下文窗口（高级·可选）”，例如 `2100000`，界面没有保存按钮；用户反馈“没有保存按钮”“切出去还是没变化”。此前也有人填过但未报问题，说明不是所有路径必现。
+- **截图定位**：
+  - 截图显示 `Temperature: 0.8`、`Max Tokens: 不限制（模型最大）`、`上下文窗口（高级·可选）2,100,000 token`，输入框内为 `2100000`。
+  - 页面上方存在“配置预设”和“保存当前为预设 / 用当前配置覆盖此预设”能力；截图未显示用户是否正在使用某个预设。
+- **已确认代码定位**：
+  - `src/components/settings/AIConfigPanel.tsx` 中上下文窗口输入框直接调用 `setConfig({ contextWindow: Number(e.target.value) || undefined })`。
+  - `src/stores/ai-config.ts` 的 `setConfig()` 会立刻 `persistConfig(newConfig, rememberApiKey)`，把当前配置写入 `localStorage` 的 `storyforge-ai-config`；API Key 不记住时只剔除 `apiKey`，不会剔除 `contextWindow`。
+  - `saveAsPreset()` / `updatePresetFromCurrent()` 会把当前配置另存到 `storyforge-ai-presets`；但用户手动改“上下文窗口”时只保存当前配置，不会自动更新已存在的预设。
+  - `applyPreset(id)` 会用预设里的整份 `preset.config` 覆盖当前配置；旧预设如果没有 `contextWindow` 或值不同，会把刚填的上下文窗口覆盖掉。
+  - 现有 `tests/regression/R-ai-config-storage.test.ts` 覆盖 API Key、LongCat 预设，但没有覆盖 `contextWindow` 的当前配置持久化、预设保存、套用旧预设覆盖行为。
+- **根因判断**：
+  1. **不是普通输入框未绑定保存**：当前配置路径理论上是即时保存的，刷新/重新打开同一当前配置应保留。
+  2. **高概率是预设交互导致的“保存感知异常”**：用户以为改了当前页面就等于改了当前预设，但代码会把 `activePresetId` 置空；之后若再次点击原预设或切换 provider，旧预设会覆盖 `contextWindow`，表现为“切出去就没了”。
+  3. **缺少保存状态反馈**：设置页大量字段自动保存，但没有“已保存 / 未保存到预设 / 当前配置已脱离预设”的提示；对高级字段尤其容易误解。
+  4. **输入解析边界弱**：`Number(value) || undefined` 会把空值、非法值、`0` 都变成 `undefined`；如果用户输入逗号、中文逗号、空格分组等格式，也会被当作未设置。截图里是纯数字，暂不认为是本次主因，但需要补防护。
+- **解决方案**：
+  1. 增加明确反馈：设置页顶部或上下文窗口行内显示“已自动保存到当前配置”；当 `activePresetId === null` 且刚由某预设改动后，显示“当前配置已修改，未写回预设，可点 💾 覆盖预设或保存为新预设”。
+  2. 对预设行为做防丢保护：从旧预设套用时，如果预设缺少 `contextWindow`，不要无声清掉当前手填值；可选择继承当前 `contextWindow`，或弹出确认“套用预设会覆盖上下文窗口”。
+  3. `saveAsPreset()` / `updatePresetFromCurrent()` 必须完整保存 `contextWindow`，并增加测试断言。
+  4. 输入解析改为独立纯函数，例如 `parseContextWindowInput()`：允许纯数字和常见分隔符，非法输入不立刻清空已保存值，而是显示错误；空字符串才表示“用模型预设”。
+  5. 在输入框旁提供“重置为模型预设”按钮，避免用户只能靠清空输入框理解 `undefined`。
+- **验收标准**：
+  - 填写 `2100000` 后切到其他侧栏再回来，仍显示 `2,100,000 token` 和输入值。
+  - 刷新页面后当前配置仍保留 `contextWindow: 2100000`。
+  - 保存为预设后，切换到其他预设再切回来，`contextWindow` 仍保留。
+  - 套用旧预设不会无提示清除用户刚填的上下文窗口；若确实要覆盖，必须有明确提示或保留策略。
+  - 输入 `2,100,000` / `2100000` 都能稳定解析；输入非法内容时不清空旧值，并提示格式错误。
+  - 回归测试覆盖 `setConfig({ contextWindow })` 持久化、`saveAsPreset()` 保留、`applyPreset()` 旧预设覆盖/继承策略。
+- **优先级**：🟠 中高（本地模型/长上下文用户关键配置；不影响手稿数据，但会导致误报上下文不足或用户误以为设置无效）。
+
+## 🔴 CF-20260703-10 — 章节正文已采纳/保存，但章节列表仍显示 0 字，导出为空
+
+- **现象**：用户反馈章节已经生成好，截图中大纲/章节入口处有章节标题和约 `2,521 / 2,670 / 3,000` 字；但进入创作区外层章节列表后对应章节仍显示 `0 字`，用户补充“采纳了”“保存也点了”，并反馈导出文件为空。
+- **截图定位**：
+  - 第一张截图显示：章节列表/外层卡片中章节显示 `0 字`，旁边有“删除”等操作；用户文字为“为什么章节生成好了外面还是0个字，导出也是空的”。
+  - 第二张截图补充：用户确认已“采纳了”“保存也点了”，排除“未点击采纳/保存”的简单原因。
+- **已确认代码定位**：
+  - 正文编辑器 `src/components/editor/ChapterEditor.tsx` 的 `handleAcceptAI()`：`generate / continue` 采纳后会把 `editorRef.current.getHTML()` 写入 `updateChapter(id, { content, wordCount })`；但其他 AI 操作只更新编辑器，依赖自动保存或手动保存。
+  - 手动保存按钮当前是 `updateChapter(currentChapter.id, { content, wordCount })`，使用 React state 中的 `content / wordCount`，没有像 `handleManualMemory()` 那样直接读取 `editorRef.current.getHTML()` 与 `getPlainText()`；若 TipTap 最新内容尚未同步到 state，手动保存可能保存旧值。
+  - 同一文件有两处自动创建章节记录：进入 `outlineNodeId` 时的 effect 会 `addChapter({ outlineNodeId, content:'', wordCount:0 })`；`handleCreateFromOutline()` 也可创建章节。创建前只查 `chapters.find(c => c.outlineNodeId === outlineNodeId)`，没有 DB 级唯一约束，也没有并发 in-flight guard。
+  - `src/components/editor/ChaptersListPanel.tsx` 外层列表用 `chapters.find(c => c.outlineNodeId === ch.id)` 取第一条章节记录显示字数。
+  - `src/lib/export/text-export.ts` 导出时用 `const chapterMap = new Map<number, Chapter>(); chapters.forEach(ch => chapterMap.set(ch.outlineNodeId, ch))`，同一 `outlineNodeId` 多条章节时后写入 Map 的记录会覆盖前一条。
+  - `src/lib/ai/chapter-memory/canonical-chapter-sequence.ts` 已经有 `duplicate-chapter-mapping` 异常检测，说明“一个大纲节点映射多条章节记录”是项目已知可能出现的数据异常。
+- **根因判断**：
+  1. **最高嫌疑：重复章节记录导致读写对象不一致**。用户编辑/保存的是某条有正文的 `chapters` 记录，但外层列表 `find()` 可能拿到另一条 `wordCount=0` 的空记录；导出 `Map.set()` 又可能被空记录覆盖，最终导出为空。这与“编辑器里有内容、外面 0 字、导出空”高度吻合。
+  2. **次级嫌疑：手动保存读取旧 state**。TipTap `setContent()` 或采纳/替换选区后，React state 更新存在异步窗口；手动保存按钮若立刻使用旧 `content`，可能把旧空内容写回 DB。`handleManualMemory()` 已经用 editor ref 规避了这个问题，但保存按钮还没同步修。
+  3. **导出链路缺少去重/择优策略**。即便历史数据里已经存在重复章节记录，导出也应选择有正文/字数较大/更新时间较新的记录，而不是让遍历顺序决定是否导出空文。
+- **解决方案**：
+  1. 修正文保存按钮：统一抽出 `persistCurrentEditorContent()`，保存时直接读 `editorRef.current?.getHTML()` 与 `getPlainText()`，更新 `content / plainText / savedContent`，不要用可能滞后的 state。
+  2. 修采纳路径：所有会改变正文的采纳操作（整章生成、续写、整章润色、选区替换）完成后都应明确落库，或至少调用同一个 `persistCurrentEditorContent()`；用户点“采纳”后不应只靠防抖自动保存。
+  3. 防重复创建：在 `addChapter` 前二次查 DB 是否已有 `outlineNodeId`；组件侧增加 `creatingChapterForOutlineRef` 防止 effect 重复触发；store 层提供 `getOrCreateByOutlineNode(projectId, outlineNodeId)` 原子式入口，组件不直接 `addChapter()`。
+  4. 数据修复/兼容：增加重复章节合并函数。对于同一 `projectId + outlineNodeId` 的多条记录，保留“正文非空且 wordCount 最大 / updatedAt 最新”的主记录，把 summary/notes/status 等有价值字段合并，删除或归档空重复记录。
+  5. 列表与导出择优：在彻底清理历史重复前，`ChaptersListPanel`、`text-export.ts`、`context-snapshot.ts` 等按 `outlineNodeId` 取章节的地方统一用 `pickBestChapterForOutline()`，优先选择有内容、字数大、更新时间新的记录。
+  6. 加异常提示：如果检测到一个大纲节点存在多条章节记录，在开发日志或数据维护入口提示“检测到重复章节映射，可一键修复”，避免静默导出空章。
+- **验收标准**：
+  - AI 生成正文后点击“采纳”，章节列表立即显示正确字数，不需要切页/刷新。
+  - 点击“保存”后刷新页面，正文仍存在，章节列表字数正确。
+  - 导出 Markdown / TXT 时包含已采纳正文，不再导出空章。
+  - 构造同一 `outlineNodeId` 两条章节记录（一条空、一条 3000 字），列表和导出都选择 3000 字那条；修复工具能合并/清理重复记录。
+  - 连续快速进入同一大纲节点、切页再回来，不会创建重复章节记录。
+  - 回归测试覆盖：`getOrCreateByOutlineNode()` 防重复、`pickBestChapterForOutline()` 择优、导出重复章节时不丢正文、保存按钮从 editor ref 取最新 HTML。
+- **优先级**：🔴 高（用户会以为正文和导出丢失；涉及核心手稿安全与导出可信度）。
 
 # ═══ 社区反馈批次（2026-07-02 · 角色弧光 / 生成一致性 / 本地模型 / 输入法 / 流派约束）═══
 
@@ -648,6 +924,8 @@
 
 ## 🔴 CF-20260702-13 — 本地 `.bat` / `.exe` 打开疯狂重定向，Service Worker 自愈无效
 
+> **2026-07-03 分发决策更新**：本条中“继续修 `.bat` / `.exe` / Portable”的部分已作废。v3.7.5 起仓库删除启动器与 exe 打包线，Release 只保留源码包，用户统一按 `使用npm指令启动项目.md` 通过 npm 启动。仍保留的有效结论：本地 localhost 不应注册 PWA SW；自愈逻辑只允许清 SW / Cache Storage，绝不碰 IndexedDB / localStorage。
+
 - **现象**：用户用 `.bat` / `.exe` 启动本地构建后，浏览器在 `localhost:1111` 或 `127.0.0.1:1111` 反复重定向，页面打不开并报 `ERR_TOO_MANY_REDIRECTS`。此前已在 `index.html` 加过“注销 SW + 清 Cache Storage”的本地自愈脚本，但用户侧仍复发。
 - **根因判断（Claude 审核补充）**：
   - 问题核心是 PWA Service Worker，不是 `.bat` / `.exe` 本身。
@@ -752,13 +1030,13 @@
 > **当前状态（2026-07-01 · Claude 已修复一轮）**：
 > - ✅ **CF-2 场景采纳崩溃** — 已修复并部署 main（`json→arr` + `normalizeDetailedScenes` 自愈，R-CF2）。
 > - ✅ **CF-3 大纲偏离主线** — 已修复并部署 main（卷纲/章纲 prompt 主线硬约束，R-CF3）。
-> - ✅ **CF-1 本地启动重定向** — 代码侧已修并部署 main（index.html localhost 注销遗留 SW + 清 Cache Storage，绝不碰 IndexedDB/localStorage；vite `strictPort`；`启动.bat` 端口占用检测）。**bat/exe/SW 在真实 Windows 的端到端验证需用户侧完成**。
+> - ✅ **CF-1 本地启动重定向** — 代码侧已修并部署 main（index.html localhost 注销遗留 SW + 清 Cache Storage，绝不碰 IndexedDB/localStorage；vite `strictPort`）。**后续分发决策已废弃 `启动.bat` / `StoryForge.exe`，不再维护启动器路径**。
 > - ✅ **CF-5 灵感反推边界提示** — 已修复并部署 main（输入区适用边界提示 + 超长非阻断警告）。
-> - ✅ **CF-7 分发引导** — 已修复并部署 main（README「Windows 一键启动·小白路径」+ bat 诊断）。
+> - ✅ **CF-7 分发引导** — 已被 v3.7.5 分发决策取代：Release 只保留源码包，README / 根目录文档改为 npm 启动说明；`.bat` / `.exe` / Portable 路线停止维护。
 > - ✅ **CF-4 主题可读性** — Codex 本批次已做，在 `codex/community-theme-tips` 分支（随该分支合并 main 生效）。
 > - ✅ **CF-6 伏笔边界说明** — 显示错位半边由 `d7a252f`(Codex)+`ca61d0f`(Claude 复审修复) 覆盖；作用边界 Tips `0563763` 已加，在 `codex/community-theme-tips` 分支。
 > **备注**：CF-1/2/3/5/7 已在 `origin/main`；CF-4/6 待 codex 分支合并 main。原始批次定位见下方各条。
-> **重要约束**：① 不改用户正文数据；② 涉及 AI 读写继续走 `CONTEXT_SOURCES / FIELD_REGISTRY / ADOPTION_SCHEMA / adopt()`；③ Windows 启动修复必须覆盖「源码 ZIP + 启动.bat」和「Release Portable + StoryForge.exe」两条路径；④ 主题修复必须按整体色彩系统处理，不能只补单个按钮。
+> **重要约束**：① 不改用户正文数据；② 涉及 AI 读写继续走 `CONTEXT_SOURCES / FIELD_REGISTRY / ADOPTION_SCHEMA / adopt()`；③ 启动器维护要求已作废，v3.7.5 起不再重建 `.bat` / `.exe` / Portable；④ 主题修复必须按整体色彩系统处理，不能只补单个按钮。
 
 ## 附图索引
 
@@ -772,6 +1050,8 @@
 | 图 6 | Release Portable `StoryForge.exe` 打开后 `ERR_TOO_MANY_REDIRECTS` | ![exe 重定向过多](assets/community-feedback-2026-06-30/CF-20260630-06-exe-too-many-redirects.png) |
 
 ## 🔴 CF-20260630-1 — Windows 启动入口 `启动.bat` / `StoryForge.exe` 出现 `ERR_TOO_MANY_REDIRECTS`
+
+> **状态更新（2026-07-03）**：本条作为历史根因记录保留，不再作为活跃待办执行。作者已拍板废弃 `.bat` / `.exe` / Portable 启动路线，仓库已删除相关文件；后续只维护源码包 + npm 启动文档。严禁按本条旧方案重建启动器。
 
 - **现象**：
   - 用户 A：下载源码 ZIP，进入 `storyforge-main/storyforge-main`，明确双击图 2 中的 `启动.bat`，浏览器打开后提示 `127.0.0.1` 重定向次数过多。
@@ -788,13 +1068,13 @@
     1. 1111 端口被旧 StoryForge / 其他本地服务占用，当前入口打开了错误服务；
     2. 旧 PWA service worker / Workbox cache 拦截 `/storyforge/` 导航；
     3. `localhost` 与 `127.0.0.1` 混用导致用户侧状态分裂，进一步放大缓存 / 端口混乱。
-- **修复方案**：
+- **历史修复方案（已作废，不再执行）**：
   1. `启动.bat` 启动前检测 1111 端口占用；占用时清晰提示用户关闭旧黑窗 / 旧 `StoryForge.exe` / 占用程序，不继续误导打开浏览器。
   2. Vite `server.strictPort = true`，避免端口变化但说明仍指向 1111。
   3. 本地环境（`localhost` / `127.0.0.1`）默认不注册 PWA，或启动期自动 unregister StoryForge SW + 清 Workbox cache；**不得清 IndexedDB / localStorage 中的用户作品和 API 配置**。
   4. `StoryForge.exe` 监听 1111 失败时不要直接打开浏览器；先做健康检查，确认该端口返回的是当前 StoryForge，再打开；否则给端口占用提示。
   5. 文档明确区分两种包：源码 ZIP 运行 `启动.bat`；Release Portable 运行 `StoryForge.exe`；不要混用。
-- **验证要求**：
+- **历史验证要求（已作废，不再执行）**：
   - Windows 环境至少验证：
     1. 无旧进程首次启动；
     2. 1111 被占用；
@@ -906,10 +1186,12 @@
 
 ## 🟡 CF-20260630-7 — Release / 源码 ZIP 分发体验需要整理
 
+> **状态更新（2026-07-03）**：已由 v3.7.5 分发决策取代。Release 不再提供 Portable / exe；源码 ZIP 用户统一按根目录 `使用npm指令启动项目.md` 执行 `npm install` + `npm run dev`。
+
 - **现象**：
   - 用户不懂命令行，不会 npm，倾向于下载 ZIP 后双击启动。
   - 当前同时存在源码 ZIP 的 `启动.bat` 和 Release Portable 的 `StoryForge.exe`，用户容易混淆。
-- **待做**：
+- **历史待做（已作废，不再执行）**：
   1. Release 页面写清：普通 Windows 用户优先下载 Portable 包并运行 `StoryForge.exe`；开发者 / 源码用户才使用 `启动.bat`。
   2. 源码 ZIP 的 `启动.bat` 增加更强诊断：Node 未安装、npm install 失败、端口占用、浏览器打不开分别提示不同解决方案。
   3. README 首页增加“Windows 小白启动路径”。

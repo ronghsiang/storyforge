@@ -11,6 +11,53 @@
 
 ---
 
+# ═══ 待开发 · 当前优先:一致性工程化 ═══
+
+> 北极星:**把一致性工程化 —— 一件事,三头受益(bug 变少 / 长期一致性变好 / 游戏基座地基)**。完整路线见文档库《StoryForge_收敛路线_一页纸》与 VISION v3。一致性目前靠「抽取→拼进 prompt→劝模型→LLM 事后审→给作者看」的概率链,**没有代码级确定性判决**——本轨道逐块补上。
+
+## 🔴 CONSISTENCY-1 · 物品/状态账本硬校验（确定性校验器·第一块砖）
+
+> **定位**:一致性工程化第 1 步。把一致性从「劝」升到「判」的第一块最小砖——治一个真实用户 bug,同时是「环 2 canon 校验器」原型、游戏运行时原样可用。
+
+**现状(WPS bug 文档用户反馈)**
+- 「前 2 章刚获得的物品已在物品栏/状态栏出现、获得渠道可查,但**新章节总是重新给该物品赋予获得途径**」。
+- 「明显的状态追踪问题,道具应作为事实细节被提出、记忆…道具丢失明显不应该」。
+
+**根因定位(已核代码)**
+- `itemLedger`(`db.itemLedger`)记 gain/consume 流水,经 `CONTEXT_SOURCES` 的 `itemLedger` 源作为「物品流水证据」注入生成上下文。
+- 但它只是**建议性注入**("勿矛盾"),**没有任何确定性代码**在生成后核对「本章是否把角色已持有物品又写成首次获得」。一致性靠劝不靠判(全项目通病)。
+
+**解决方案(四问已过;三部分,纯读、不改 schema)**
+- **A. 物品持有投影(确定性,新纯函数)** `projectHeldItems(projectId, chapterId, worldGroupId) → Map<itemName, qty>`
+  - = 截止「当前章」(按 `resolveCanonicalChapterSequence` 规范章序,**绝不缓存 order**)所有 gain 减 consume;按世界隔离(worldGroupId ∪ null)。镜像 `readCurrentFacts`(context-sources.ts),复用现有章序解析。
+- **B. 新增 `CONTEXT_SOURCE` `heldItems`(读,走注册表)**
+  - `CONTEXT_SOURCES` 加一行 `heldItems`(scope:'chapter',requiresChapterId),把 A 的投影渲染成「【当前已持有物品(勿再写首次获得)】…」注入正文生成,比原始「物品流水」更聚焦。**四问①:读走 assembleContext ✓。**
+- **C. 确定性硬校验(判决环第一块,纯函数)** `checkHeldItemAcquisition(generatedText, heldItems, knownItemNames) → finding[]`
+  - 扫描正文中「获得/得到/拿到/捡到/首次…」等获得动词邻近、且**已在 heldItems 中**的物品名 → 产出 finding「声称首次获得已持有物品 X」。
+  - 严重度默认 `risk`(低误报优先,与 `consistency-audit` 同哲学);引文逐字回查正文(复用 `content.includes(quote)`)。
+  - 接入 `ReviewPanel`(与 consistency-audit findings 同渠道展示),**先做「生成后确定性提示」**,不阻断(后续可升级为生成前拦截/重生成)。
+
+**四问 checklist**
+- ① 读:新 `heldItems` 源走 `CONTEXT_SOURCES + assembleContext`(不在面板手拼)。
+- ② 写:本任务**只读不写**,校验器不落库,不碰 `adopt`。
+- ③ 表生命周期:只读既有 `itemLedger`(已在 `PROJECT_TABLES`),**无新表、无 schema 变更**。
+- ④ 注册表登记:`heldItems` 加进 `CONTEXT_SOURCES` 一行;投影/校验为纯函数。
+
+**数据红线**:无 DB schema 变更、无迁移、纯读 —— 不触发数据红线(低风险,适合第一块砖)。
+
+**验证判据(新增 `R-CONSISTENCY1` 测试)**
+- 投影:gain−consume 按规范章序正确;未来章不计入;世界隔离;不缓存 order。
+- 校验:已持有物品被写成「首次获得」→ 命中 finding;物品**真正首次获得**(不在 heldItems)→ 不误报;引文逐字回查。
+- `heldItems` 源被正文生成上下文包含。
+- `tsc` / `check:architecture` / `check:required-tables` / `check:ai-manual` / `build` 全绿。
+
+**DoD**
+- 主路径端到端:写含「重复获得已持有物」的正文 → 校验命中并在 ReviewPanel 提示。
+- 无裸 `db.xxx` 散写;读经注册表。
+- 若一次做不完:A+B(注入强化)先上,C(校验)标 Labs 隐藏——但**优先把 C 做出来**(它才是「判」的第一块)。
+
+---
+
 # ═══ 已完成 ═══
 
 ## ✅ 数据云备份 + 精简瘦身（2026-06-13）

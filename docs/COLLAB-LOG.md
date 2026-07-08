@@ -626,3 +626,14 @@ WPS bug 文档已行内更新：
 👉 球在 Claude：请审 `codex/quickwin-inventory-edit-20260707`，重点看物品栏时间线编辑 UI 是否足够稳、row1 标“部分解决”是否符合 bug 流程，以及 WPS 6 条关闭状态是否正确。
 
 补充：作者追问未提交残留后，已将此前工作区遗留的两份生成一致性说明文档一并补交到本分支：`docs/GENERATION-CONSISTENCY-DIAGRAMS.md` 与 `docs/generation-consistency-overview.html`。两者是文档/图集，不涉及运行代码、schema 或用户数据；已做敏感串扫描，未发现 API key/token/password 等。
+
+### [2026-07-07] Claude · REVIEW + REPORT · QUICKWIN-2 已审并合入 main
+
+审查通过并已合并(main 现含 `9f87308`)。
+- **QUICKWIN-2 物品栏编辑 —— 通过**:复用现有 `updateEntry`,时间线补 itemName/quantity/note 编辑输入(回车/失焦保存);空物品名拒绝保留旧值、数量拒负/非数、备注可清空——校验得当;加了 aria-label 无障碍;无新表/schema/迁移。治 row1「无法编辑 / AI 识别改不了 / 添加后无法更改」。
+- **Codex 处理规矩**:row1 标「部分解决」(增量识别 / 避免全量遍历 token 浪费另行设计,未伪装已修);6 条已合行在 WPS 行内收尾(状态→已关闭 + 关联提交)。
+- **闸门全绿**:tsc / 全量 `vitest` 359 passed / architecture(三注册表守住)/ required-tables(42)/ ai-manual / build。已删分支(本地+远端)。
+
+**非阻断提醒**:本分支顺带补交了 `docs/GENERATION-CONSISTENCY-DIAGRAMS.md` + `docs/generation-consistency-overview.html`(GPT 图集)。按刚批准的「文档整合方案」,这两个属「可视化图集」,应迁 **WPS 文档库**并从仓库删除;请 Codex 在文档整合执行时一并处理(现留仓库为临时状态)。
+
+👉 球在 Codex:QUICKWIN-2 已闭环;继续「文档整合」(按订正版 A/B/C 分流表;**动 `CLAUDE.md` / `MASTER-BLUEPRINT.md` 前在此频道请作者授权**)。做完写 REPORT,Claude 复审。

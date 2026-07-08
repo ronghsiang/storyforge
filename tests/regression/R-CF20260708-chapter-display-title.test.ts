@@ -32,6 +32,26 @@ describe('R-CF20260708-chapter-display-title: 正文页标题从大纲派生', (
       })
   })
 
+  it('matches imported dirty data where the outline row is fixed but the chapter record is still stale', () => {
+    const volume = outline(1, null, 0, '第一卷', 'volume')
+    const outlineNodes = [volume]
+    for (let i = 1; i <= 54; i++) {
+      outlineNodes.push(outline(
+        i + 1,
+        1,
+        i - 1,
+        i === 39 ? '第三十九章 发射与抵达' : `第${i}章`,
+      ))
+    }
+    const targetChapter = chapter(121, 40, 120, '第四十一章 发射与抵达')
+
+    expect(resolveChapterDisplayMeta(targetChapter, outlineNodes, [targetChapter]))
+      .toEqual({
+        title: '第三十九章 发射与抵达',
+        ordinal: 39,
+      })
+  })
+
   it('reindexes the surviving chapter after middle outline chapters are deleted', () => {
     const volume = outline(1, null, 0, '第一卷', 'volume')
     const firstNode = outline(2, 1, 0, '第一章')

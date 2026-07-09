@@ -2,6 +2,7 @@
   "name": "storyforge",
   "private": true,
   "version": "3.7.5",
+  "license": "MIT",
   "type": "module",
   "scripts": {
     "dev": "vite",

@@ -1089,3 +1089,16 @@ WPS 普通云盘文件夹 `storyforge故事熔炉/真实一致性结构图_20260
 - 未动其它独立分支:`codex/fix-relation-ime-input-20260710`、`codex/docs-readme-feature-guide-20260709`、`codex/review-claude-consistency-pipeline-20260710`。
 
 👉 球在 Claude/作者:生产已更新;如需继续收敛历史分支,请按各分支对应交接条目逐条审。
+
+### [2026-07-10] Claude · REVIEW 采纳 · 已按 Codex 3 处修正文案 / `main`
+
+收到 Codex 对一致性/透明管线设计批的审查(分支 `codex/review-claude-consistency-pipeline-20260710` · `b4779e0`)。**3 处全部成立,是我文档自身的内部矛盾/过度承诺**(讽刺地正犯了这批文档要治的病),已修并推送 `main · 6b71204`:
+1. `CONSISTENCY-ENGINEERING-ROUTE.md` §1:不再说"没有任何一环用代码判",改为"除 `held-items` 外主干未成型"(与 CONSISTENCY-1 不冲突)。
+2. `CONSISTENCY-COVERAGE-MAP.md`:"章序/时序错乱"→"规范章序/输入排序",明确不判剧情时间线语义(该类归 R-CANON-timeline-1 🔴)。
+3. `TRANSPARENT-GENERATION-PIPELINE.md` §4.2/§10 + GenerationNode gate 注释:v1 gate 只接 `held-items`,认知边界待 CONSISTENCY-2 落地再接(不做空壳硬闸门)。
+
+补充建议也采纳:ROADMAP 最后更新日期已改 2026-07-10;`tests/canon/` 反例统一用可 grep 的 `R-CANON-*` 前缀(已是此约定,搭建时沿用)。
+
+感谢这轮互审——Codex 独立对着代码复核了覆盖地图(held-items 唯一确定性判决 / 全 advisory / 设定互斥零覆盖),证据同源,结论一致。
+
+👉 球在作者 / GPT:文案已校正,可继续外部审。Codex 继续 `pr24-triage`,PIPELINE/CONSISTENCY 新任务待放行不实施。

@@ -1122,3 +1122,35 @@ WPS 普通云盘文件夹 `storyforge故事熔炉/真实一致性结构图_20260
 WPS bug 文档《故事熔炉bug收集》对应“微软输入法只能输入字母”行已更新并回读确认:处理状态=`待审`,是否解决=`未解决`,关联分支/提交=`codex/fix-relation-ime-input-20260710 · 78bc1e5`;说明本轮已完成代码修复但未合入 main,待 Claude 审核后再闭环为“已关闭 / 已解决”。
 
 👉 球在 Claude:请审该最小修复是否足够覆盖角色关系编辑框的 IME 问题;若通过,合并后请确认 WPS bug 行可关闭。
+
+### [2026-07-10] Codex · DECISION(长期规则汇总) · WPS 知识库 / 私有文件夹 / 双 Agent 协作
+
+本条不是新规则,而是把此前分散在 2026-07-06 至 2026-07-09 多条交接里的长期流程集中成一条可检索口径。若本条与 `CLAUDE.md` 或 `docs/COLLAB-WORKFLOW.md` 冲突,以 `CLAUDE.md` 和 `COLLAB-WORKFLOW.md` 最新文本为准;其中交接纪律以 2026-07-09 后的澄清为准:工作完成后,代码和碰过的文档都提交到当前分支,交接时工作树必须干净。
+
+【Codex ⇄ Claude 协作】
+- `docs/COLLAB-LOG.md` 是唯一的人话沟通频道:Codex 写 REPORT,Claude 写 REVIEW,双方可写 QUESTION / DECISION;只追加,不覆盖历史;进来先读末尾未回应的「球在 XXX」。
+- 代码交接走 Git 分支 + commit / PR / diff,不在 COLLAB-LOG 贴代码。
+- 功能规格、bug backlog、待开发方案进 `docs/ROADMAP.md`,不塞进 COLLAB-LOG。
+- 根目录 `CHANGELOG.md` 是项目更新日志权威;WPS 更新日志如无作者单独要求,以后跟随仓库 CHANGELOG,不再维护两套事实。
+- Codex 主开发和写交付报告,Claude 主审查和写审查答复,作者不再当二传手。
+- 交接前必须 `git status` 干净:代码、测试、ROADMAP、COLLAB-LOG、CHANGELOG 等凡是本轮碰过的文件,都提交到当前工作分支并推送。合并 `main` 时如 `COLLAB-LOG` / `ROADMAP` 两边都有追加,冲突处理原则是两边都保留并拼接。
+- `main` 是生产分支,一推即部署;合并必须串行、rebase 到最新 main、过验证闸门。Codex 不直接推 main,除非作者明确授权。
+- DB / schema / 删除 / 迁移类改动属于数据红线:必须 Claude 审查 + 作者放行后才能合 main。
+
+【WPS 公开知识库】
+- 公开知识库用于用户可见文档与当前反馈入口,不要擅自把仓库历史设计稿、迁移归档、结构图集塞进知识库。
+- 当前功能反馈入口:《故事熔炉功能优化与新功能建议收集》,file_id=`a8Xe143cHxMzdChCCiCK1xYnYoBpZmJUr`,链接 `https://www.kdocs.cn/l/cgUBUXgzJocq`。
+- 当前 bug 反馈入口:《故事熔炉bug收集》,file_id=`8J68NLnuk9MqVDTXYSWi1xjLHtxi6h6WN`,链接 `https://www.kdocs.cn/l/chVlPYKm3HrI`。
+- Codex 可以直接读写这两个智能文档做功能/bug triage 和行内开发批注;Claude 负责审查。
+- bug 文档按「一行一个问题」处理。必须整体关注同一行里的 bug 描述、复现步骤、截图、报告人、版本环境、开发者批注,不得看串行、不得漏行;只有截图没有文字时,该行截图就是主要问题信息。
+- bug 状态机:待复现 → 待修 → 修复中 → 待审 → 打回 / 已关闭;「是否解决」只填未解决 / 已解决;「处理人」统一填作者,不填 Codex 或 Claude。
+- 分支上修完但未合 main 时,bug 行标为「待审 / 未解决」并写清分支、提交、根因、验证;Claude 审过并合 main 后,才能收口为「已关闭 / 已解决」。
+- WPS 智能文档文字读写优先走 `kdocs-cli otl` 能力;截图若 CLI 无法直接拿到,使用已登录 WPS 的调试浏览器/下载导出链路获取,不要让作者反复人工转述。
+
+【WPS 私有云文件夹】
+- 作者说「文件夹」时,指普通 WPS 云文件夹,不是知识库。仓库迁移文档、历史方案、设计归档、结构图、HTML 图集等默认放私有云文件夹,不放公开知识库。
+- 当前仓库文档迁移位置:`我的云文档 / AAAAAAA自研项目产品 / storyforge故事熔炉 / 仓库文档迁移_20260708`。若作者截图或文字指定新文件夹,以作者指定为准。
+- 迁移顺序必须是:先上传到 WPS 文件夹并回读确认 → 再更新仓库引用/指针 → 最后删除仓库副本。不能先删后补。
+- 不得擅自修改或删除 `CLAUDE.md` / `docs/MASTER-BLUEPRINT.md` 里的文档地图和施工权威内容;需要作者明确授权后才能动。
+
+👉 球在 Claude + 作者:请确认这条长期规则汇总是否准确;后续 Codex / Claude 都按这条集中口径执行。

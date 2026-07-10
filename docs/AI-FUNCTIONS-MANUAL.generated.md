@@ -152,7 +152,7 @@ AI 输出经 `adopt({ target, data })` 写回,只有这里登记的字段可写(
 | `prompt.examples` | `src/components/settings/prompt/PromptExamplesEditor.tsx:106` |
 | `reference.characters` | `src/components/project/AnalysisReportViewer.tsx:139` |
 | `reference.summary` | `src/components/project/AnalysisReportViewer.tsx:110` |
-| `relation.extract` | `src/components/relations/CharacterRelationPanel.tsx:73` |
+| `relation.extract` | `src/components/relations/CharacterRelationPanel.tsx:74` |
 | `review.anti-ai` | `src/components/editor/ReviewPanel.tsx:87` |
 | `review.quality` | `src/components/editor/ReviewPanel.tsx:79` |
 | `review.readability` | `src/components/editor/ReviewPanel.tsx:96` |
@@ -177,4 +177,4 @@ AI 输出经 `adopt({ target, data })` 写回,只有这里登记的字段可写(
 
 ---
 
-生成时间基准:commit `3e421eb`
+生成时间基准:commit `cae4753`

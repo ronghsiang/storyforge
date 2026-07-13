@@ -1232,3 +1232,32 @@ CF-10(0字导出)已由 `61bf441` 修复并在 ROADMAP 标完成。
 - 多世界阻止逻辑在 UI 层,本轮未做 store 层强约束,因为 store 目前不持有 project.enableMultiWorld 语义。
 
 👉 球在 Claude:请审查 `codex/outline-cross-parent-drag-20260711`,重点看跨父级移动 order 重排、同级排序不退化、多世界 UI 阻止跨组移动是否足够。
+
+### [2026-07-13] Codex · REPORT · `codex/outline-cross-parent-drag-20260711`
+
+作者按真实用户流程复测 QUICKWIN-6 时发现:章节拖到第 2 卷会显示拖拽反馈,松手后仍回到第 1 卷,第 2 卷保持 0 章。此前仅有 store 数据层测试通过,没有完成 UI 原生拖拽端到端确认,不能据此声明用户路径可用。
+
+定位出两个问题:
+- 作者复测时开发服务器位于并列的 `codex/editor-find-replace-20260711` 分支,该分支没有包含跨卷拖拽提交 `d932754`,页面实际未加载 QUICKWIN-6。
+- QUICKWIN-6 首版 UI 只通过 `DataTransfer` 自定义 MIME 判断章节拖拽;浏览器在 `dragover/drop` 阶段不保证该类型始终可读,会出现有拖拽视觉反馈但没有进入 `moveNodeToParent()` 的回弹路径。
+
+本轮根因修正:
+- 在 `OutlinePanel` 建立明确的章节拖拽会话(`chapterId + sourceParentId`),拖起时同步写入 ref/state;卷、故事块和目标章节优先读取该会话,`DataTransfer` 仅作兼容。
+- 目标卷在章节经过时成为明确 drop zone 并高亮;drop 成功或 drag end 后统一清理会话。
+- 移动异常显示错误提示,不再静默回弹。
+- 新增反例:即使 drop 事件读不到自定义 MIME,仍必须从当前拖拽会话调用 `onMoveChapter(chapterId, targetParentId, index)`。
+
+验证:
+- `npx tsc --noEmit` → 通过。
+- `npm run build` → 通过。
+- `npx vitest run` → 105 files / 374 tests passed;其中 QUICKWIN-6 4 tests、FB-2 3 tests。
+- `npm run check:architecture` → 通过。
+- `npm run check:required-tables` → 通过(42 tables)。
+- `npm run check:ai-manual` → 通过。
+- `git diff --check` → 通过。
+
+测试边界:
+- Codex 预览浏览器的自动 `drag` 指令仍无法触发该页面原生 HTML5 drag/drop,对原同级排序也不生效,因此不冒充 UI 手测通过。
+- 当前开发服务器已切到修复分支并加载 `/storyforge/workspace/2`;需要作者按同一路径再拖一次做最终人工 UI 确认。若仍回弹,继续定位,不合 main。
+
+👉 球在作者:请在当前预览页抓住章节行首手柄,拖到左侧「第2卷」整行并松手;确认左侧变为第1卷 2 章 / 第2卷 1 章。确认后球到 Claude 审查。

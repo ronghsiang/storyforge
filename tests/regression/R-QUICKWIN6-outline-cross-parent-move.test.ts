@@ -1,6 +1,7 @@
-import { describe, it, expect, beforeEach, afterEach } from 'vitest'
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
 import { db } from '../../src/lib/db/schema'
 import { useOutlineStore } from '../../src/stores/outline'
+import { chapterDropProps } from '../../src/components/outline/OutlinePanel'
 
 async function createProject(): Promise<number> {
   return await db.projects.add({
@@ -94,5 +95,37 @@ describe('R-QUICKWIN6 · 大纲章节跨卷/跨故事块移动', () => {
       .sort((x, y) => x.order - y.order)
     expect(chapters.map(node => node.id)).toEqual([c, a, b])
     expect(chapters.map(node => node.order)).toEqual([0, 1, 2])
+  })
+
+  it('drop 事件读不到自定义 MIME 时,仍使用当前章节拖拽会话完成跨卷移动', async () => {
+    const activeDrag = { chapterId: 21, sourceParentId: 10 }
+    const onMoveChapter = vi.fn(async () => {})
+    const clearActiveChapterDrag = vi.fn()
+    const preventDefault = vi.fn()
+    const stopPropagation = vi.fn()
+    const event = {
+      dataTransfer: {
+        types: [],
+        getData: () => '',
+        dropEffect: 'none',
+      },
+      preventDefault,
+      stopPropagation,
+    } as any
+    const handlers = chapterDropProps({
+      targetParentId: 20,
+      targetIndex: 0,
+      onMoveChapter,
+      getActiveChapterDrag: () => activeDrag,
+      clearActiveChapterDrag,
+    })
+
+    handlers.onDragOver(event)
+    await handlers.onDrop(event)
+
+    expect(preventDefault).toHaveBeenCalledTimes(2)
+    expect(stopPropagation).toHaveBeenCalledOnce()
+    expect(onMoveChapter).toHaveBeenCalledWith(21, 20, 0)
+    expect(clearActiveChapterDrag).toHaveBeenCalledOnce()
   })
 })

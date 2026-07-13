@@ -59,27 +59,37 @@ function hasChapterDragPayload(event: ReactDragEvent): boolean {
   return Array.from(event.dataTransfer?.types ?? []).includes(OUTLINE_CHAPTER_DRAG_MIME)
 }
 
-function chapterDropProps({
+type GetActiveChapterDrag = () => ChapterDragPayload | null
+
+export function chapterDropProps({
   targetParentId,
   targetIndex,
   onMoveChapter,
+  getActiveChapterDrag,
+  clearActiveChapterDrag,
 }: {
   targetParentId: number
   targetIndex: number
   onMoveChapter: (chapterId: number, targetParentId: number, index: number) => Promise<void>
+  getActiveChapterDrag: GetActiveChapterDrag
+  clearActiveChapterDrag: () => void
 }) {
   return {
     onDragOver: (event: ReactDragEvent) => {
-      if (!hasChapterDragPayload(event)) return
+      if (!getActiveChapterDrag() && !hasChapterDragPayload(event)) return
       event.preventDefault()
       event.dataTransfer.dropEffect = 'move'
     },
     onDrop: async (event: ReactDragEvent) => {
-      const payload = readChapterDragPayload(event)
+      const payload = readChapterDragPayload(event) ?? getActiveChapterDrag()
       if (!payload) return
       event.preventDefault()
       event.stopPropagation()
-      await onMoveChapter(payload.chapterId, targetParentId, targetIndex)
+      try {
+        await onMoveChapter(payload.chapterId, targetParentId, targetIndex)
+      } finally {
+        clearActiveChapterDrag()
+      }
     },
   }
 }
@@ -128,6 +138,22 @@ export default function OutlinePanel({ project, onOpenChapter }: Props) {
   const [activeModuleKey, setActiveModuleKey] = useState<'outline.volume' | 'outline.chapter'>('outline.volume')
   const [pendingGeneration, setPendingGeneration] = useState<OutlineGenerationRequest | null>(null)
   const [promptPanelOpen, setPromptPanelOpen] = useState(false)
+  const [activeChapterDrag, setActiveChapterDrag] = useState<ChapterDragPayload | null>(null)
+  const [chapterDropTargetId, setChapterDropTargetId] = useState<number | null>(null)
+  const activeChapterDragRef = useRef<ChapterDragPayload | null>(null)
+
+  const beginChapterDrag = useCallback((payload: ChapterDragPayload) => {
+    activeChapterDragRef.current = payload
+    setActiveChapterDrag(payload)
+  }, [])
+
+  const clearActiveChapterDrag = useCallback(() => {
+    activeChapterDragRef.current = null
+    setActiveChapterDrag(null)
+    setChapterDropTargetId(null)
+  }, [])
+
+  const getActiveChapterDrag = useCallback(() => activeChapterDragRef.current, [])
 
   // 采纳预览
   const [previewVolumes, setPreviewVolumes] = useState<ParsedVolume[] | null>(null)
@@ -278,7 +304,12 @@ export default function OutlinePanel({ project, onOpenChapter }: Props) {
       toast.error('不能把章节拖到其它世界组的卷下。')
       return
     }
-    await moveNodeToParent(chapterId, targetParentId, index)
+    try {
+      await moveNodeToParent(chapterId, targetParentId, index)
+    } catch (error) {
+      console.error('[OutlinePanel] Failed to move chapter', error)
+      toast.error('章节移动失败，请重试。')
+    }
   }
 
   const handleAddStructure = async (structure: StoryStructure) => {
@@ -803,14 +834,36 @@ export default function OutlinePanel({ project, onOpenChapter }: Props) {
             targetParentId: vol.id!,
             targetIndex: normalizedNodes.filter(n => n.parentId === vol.id && n.type === 'chapter').length,
             onMoveChapter: handleMoveChapter,
+            getActiveChapterDrag,
+            clearActiveChapterDrag,
           })
+          const isChapterDropTarget = chapterDropTargetId === vol.id && activeChapterDrag != null
           return (
             <div
               key={vol.id}
               {...d.dropProps}
-              onDragOver={(event) => { d.dropProps.onDragOver(event); dropToVolumeProps.onDragOver(event) }}
+              data-outline-volume-id={vol.id}
+              data-chapter-drop-target={isChapterDropTarget ? 'true' : undefined}
+              onDragEnter={(event) => {
+                d.dropProps.onDragEnter()
+                if (getActiveChapterDrag() || hasChapterDragPayload(event)) setChapterDropTargetId(vol.id!)
+              }}
+              onDragLeave={(event) => {
+                d.dropProps.onDragLeave()
+                if (!event.currentTarget.contains(event.relatedTarget as Node | null)) {
+                  setChapterDropTargetId(current => current === vol.id ? null : current)
+                }
+              }}
+              onDragOver={(event) => {
+                if (getActiveChapterDrag() || hasChapterDragPayload(event)) {
+                  setChapterDropTargetId(vol.id!)
+                  dropToVolumeProps.onDragOver(event)
+                  return
+                }
+                d.dropProps.onDragOver(event)
+              }}
               onDrop={(event) => {
-                if (hasChapterDragPayload(event)) {
+                if (getActiveChapterDrag() || hasChapterDragPayload(event)) {
                   void dropToVolumeProps.onDrop(event)
                   return
                 }
@@ -818,7 +871,7 @@ export default function OutlinePanel({ project, onOpenChapter }: Props) {
               }}
               className={`group/vol flex items-center rounded-lg mb-0.5 transition-all ${
                 active ? 'bg-accent/8 border-l-2 border-accent' : 'hover:bg-bg-hover border-l-2 border-transparent'
-              } ${d.isDragging ? 'opacity-40' : ''} ${d.isOver ? 'ring-1 ring-accent/60' : ''}`}
+              } ${d.isDragging ? 'opacity-40' : ''} ${d.isOver || isChapterDropTarget ? 'ring-1 ring-accent/60 bg-accent/10' : ''}`}
             >
               <span
                 {...d.dragHandleProps}
@@ -1043,6 +1096,10 @@ export default function OutlinePanel({ project, onOpenChapter }: Props) {
                         onInsertAfter={(chId) => handleInsertChapterAfter(chId, block.id!)}
                         onGenerateChapter={(chapterId) => prepareGeneration({ kind: 'single-chapter', chapterId })}
                         onMoveChapter={handleMoveChapter}
+                        activeChapterDrag={activeChapterDrag}
+                        getActiveChapterDrag={getActiveChapterDrag}
+                        onChapterDragStart={beginChapterDrag}
+                        onChapterDragEnd={clearActiveChapterDrag}
                       />
                     )
                   })}
@@ -1070,6 +1127,10 @@ export default function OutlinePanel({ project, onOpenChapter }: Props) {
                         onGenerate={() => prepareGeneration({ kind: 'single-chapter', chapterId: ch.id! })}
                         parentId={selectedVol.id!}
                         onMoveChapter={handleMoveChapter}
+                        activeChapterDrag={activeChapterDrag}
+                        getActiveChapterDrag={getActiveChapterDrag}
+                        onChapterDragStart={beginChapterDrag}
+                        onChapterDragEnd={clearActiveChapterDrag}
                       />
                     ))}
                   </div>
@@ -1129,7 +1190,22 @@ function PreviewPanel({
 
 // ── 章节行 ──
 
-function ChapterRow({ ch, idx, onUpdate, onDelete, onOpen, dnd, onInsertAfter, onGenerate, parentId, onMoveChapter }: {
+function ChapterRow({
+  ch,
+  idx,
+  onUpdate,
+  onDelete,
+  onOpen,
+  dnd,
+  onInsertAfter,
+  onGenerate,
+  parentId,
+  onMoveChapter,
+  activeChapterDrag,
+  getActiveChapterDrag,
+  onChapterDragStart,
+  onChapterDragEnd,
+}: {
   ch: { id?: number; title: string; summary: string }
   idx: number
   onUpdate: (id: number, patch: Record<string, string>) => void
@@ -1140,6 +1216,10 @@ function ChapterRow({ ch, idx, onUpdate, onDelete, onOpen, dnd, onInsertAfter, o
   onGenerate?: () => void
   parentId?: number
   onMoveChapter?: (chapterId: number, targetParentId: number, index: number) => Promise<void>
+  activeChapterDrag: ChapterDragPayload | null
+  getActiveChapterDrag: GetActiveChapterDrag
+  onChapterDragStart: (payload: ChapterDragPayload) => void
+  onChapterDragEnd: () => void
 }) {
   // FB-3:章节摘要(章节大纲)由单行 input 升级为多行自增 textarea —— 单行下改 1-2 句大纲很难受
   //       (横向滚、看不全、改中间费劲)。本地草稿 + 失焦保存(IME 安全:组合输入结束后才 onBlur 写库)。
@@ -1152,20 +1232,30 @@ function ChapterRow({ ch, idx, onUpdate, onDelete, onOpen, dnd, onInsertAfter, o
   }, [summaryDraft])
 
   const crossParentDrop = parentId != null && onMoveChapter
-    ? chapterDropProps({ targetParentId: parentId, targetIndex: idx, onMoveChapter })
+    ? chapterDropProps({
+      targetParentId: parentId,
+      targetIndex: idx,
+      onMoveChapter,
+      getActiveChapterDrag,
+      clearActiveChapterDrag: onChapterDragEnd,
+    })
     : null
   const baseDropProps = dnd?.dropProps
-  const isOver = dnd?.isOver
+  const isCrossParentTarget = activeChapterDrag != null && activeChapterDrag.sourceParentId !== parentId
+  const isOver = dnd?.isOver || isCrossParentTarget
 
   return (
     <div
       {...(baseDropProps ?? {})}
       onDragOver={(event) => {
+        if (isCrossParentTarget) {
+          crossParentDrop?.onDragOver(event)
+          return
+        }
         baseDropProps?.onDragOver(event)
-        crossParentDrop?.onDragOver(event)
       }}
       onDrop={(event) => {
-        const payload = readChapterDragPayload(event)
+        const payload = readChapterDragPayload(event) ?? getActiveChapterDrag()
         if (crossParentDrop && payload && payload.sourceParentId !== parentId) {
           void crossParentDrop.onDrop(event)
           return
@@ -1183,12 +1273,19 @@ function ChapterRow({ ch, idx, onUpdate, onDelete, onOpen, dnd, onInsertAfter, o
           onDragStart={(event) => {
             dnd.dragHandleProps.onDragStart(event)
             if (ch.id != null) {
-              event.dataTransfer.setData(OUTLINE_CHAPTER_DRAG_MIME, JSON.stringify({
+              const payload = {
                 chapterId: ch.id,
                 sourceParentId: parentId ?? null,
-              } satisfies ChapterDragPayload))
+              } satisfies ChapterDragPayload
+              onChapterDragStart(payload)
+              event.dataTransfer.setData(OUTLINE_CHAPTER_DRAG_MIME, JSON.stringify(payload))
             }
           }}
+          onDragEnd={() => {
+            dnd.dragHandleProps.onDragEnd()
+            onChapterDragEnd()
+          }}
+          data-outline-chapter-id={ch.id}
           title="拖动调整章节顺序"
           className="shrink-0 mt-1 cursor-grab active:cursor-grabbing text-text-muted/40 group-hover:text-text-muted"
         >
@@ -1240,7 +1337,22 @@ function ChapterRow({ ch, idx, onUpdate, onDelete, onOpen, dnd, onInsertAfter, o
 
 // ── 故事块区域 ──
 
-function StoryBlockSection({ block, chapters, onUpdateNode, onDeleteNode, onAddChapter, onOpenChapter, onReorder, onInsertAfter, onGenerateChapter, onMoveChapter }: {
+function StoryBlockSection({
+  block,
+  chapters,
+  onUpdateNode,
+  onDeleteNode,
+  onAddChapter,
+  onOpenChapter,
+  onReorder,
+  onInsertAfter,
+  onGenerateChapter,
+  onMoveChapter,
+  activeChapterDrag,
+  getActiveChapterDrag,
+  onChapterDragStart,
+  onChapterDragEnd,
+}: {
   block: { id?: number; title: string; summary: string }
   chapters: { id?: number; title: string; summary: string }[]
   onUpdateNode: (id: number, patch: Record<string, string>) => void
@@ -1251,6 +1363,10 @@ function StoryBlockSection({ block, chapters, onUpdateNode, onDeleteNode, onAddC
   onInsertAfter: (chapterId: number) => void
   onGenerateChapter: (chapterId: number) => void
   onMoveChapter: (chapterId: number, targetParentId: number, index: number) => Promise<void>
+  activeChapterDrag: ChapterDragPayload | null
+  getActiveChapterDrag: GetActiveChapterDrag
+  onChapterDragStart: (payload: ChapterDragPayload) => void
+  onChapterDragEnd: () => void
 }) {
   const dialog = useDialog()
   const [expanded, setExpanded] = useState(true)
@@ -1270,6 +1386,8 @@ function StoryBlockSection({ block, chapters, onUpdateNode, onDeleteNode, onAddC
       targetParentId: block.id,
       targetIndex: chapters.length,
       onMoveChapter,
+      getActiveChapterDrag,
+      clearActiveChapterDrag: onChapterDragEnd,
     })
     : null
 
@@ -1326,6 +1444,10 @@ function StoryBlockSection({ block, chapters, onUpdateNode, onDeleteNode, onAddC
                 onGenerate={() => onGenerateChapter(ch.id!)}
                 parentId={block.id!}
                 onMoveChapter={onMoveChapter}
+                activeChapterDrag={activeChapterDrag}
+                getActiveChapterDrag={getActiveChapterDrag}
+                onChapterDragStart={onChapterDragStart}
+                onChapterDragEnd={onChapterDragEnd}
               />
             ))
           )}
